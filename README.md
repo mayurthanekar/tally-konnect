@@ -1,102 +1,147 @@
-# Tally Konnect Import Addon (MVP)
+# Tally Konnect v2.0 - Full Utility Suite
 
-**Web-based app** that works from **any OS** (Linux, Windows, macOS). Fetches transaction history from **Konnect History API** by date range and imports into **TallyERP / TallyPrime Live Company** via:
+> 🔗 **Tally Prime ↔ Fynd Commerce** data integration platform.  
+> Import sales data, generate Tally XML, sync inventory, manage B2B parties — all from a modern web UI.
 
-- **On-Prem TallyERP** – direct connection to Tally on your machine or LAN (e.g. `http://localhost:9000` or `http://192.168.1.10:9000`)
-- **Cloud ERP** – connection to hosted Tally / Tally Cloud using a configurable URL and optional API key
+## Features
 
-## Prerequisites
+- 🔄 **5 Sync Modules**: Closing Stock, Sales Orders, Return Orders, Sales Vouchers, Credit Notes
+- 📊 **Dashboard**: Real-time status overview with connection monitoring
+- 🔌 **API Configuration**: Per-module endpoint, auth (Bearer/API Key/Basic/OAuth2), headers
+- 🗺️ **Field Mapping**: Visual drag-and-drop mapping between API JSON ↔ Tally XML keys
+- 📥 **Data Import**: Upload Excel/CSV, preview data, generate Tally-compatible XML
+- 🏢 **B2B Settings**: Auto-create party masters, GSTIN validation, buyer management
+- ⏰ **Scheduler**: Cron-based auto-sync with preset frequencies
+- 🔐 **Security**: AES-256-GCM encryption, Zod validation, Helmet, rate limiting
 
-- **Node.js** 18+
-- **Tally** (TallyPrime or Tally.ERP 9) with company open and **Developer** / **Tally Connector** enabled (listening for XML on port 9000 for On-Prem), or **Tally Cloud ERP** URL
-- **Konnect** API access: base URL and, if required, API key for the History API
+## Tech Stack
 
-## Setup
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, inline CSS (Fynd Nitrozen-inspired) |
+| Backend | Node.js 18+, Express.js |
+| Database | PostgreSQL (via Knex.js) |
+| Security | AES-256-GCM, Helmet, express-rate-limit, Zod |
+| Scheduler | node-cron |
+| File Parsing | xlsx, papaparse |
+| XML | fast-xml-parser, xmlbuilder2 |
+| Logging | pino + pino-pretty |
 
-1. Clone or copy this project, then install dependencies:
+## Quick Start (Local Development)
 
-   ```bash
-   npm install
-   ```
+### Prerequisites
+- Node.js 18+
+- PostgreSQL (local or Docker)
 
-2. Copy environment configuration:
+### 1. Clone & Install
+```bash
+git clone https://github.com/mayurthanekar/tally-konnect.git
+cd tally-konnect
+npm install
+```
 
-   ```bash
-   cp .env.example .env
-   ```
+### 2. Set up PostgreSQL
+```bash
+# Option A: Using Docker
+docker run --name tally-pg -e POSTGRES_DB=tally_konnect -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:16
 
-3. Edit `.env` and set:
+# Option B: Use your existing PostgreSQL
+```
 
-   - **KONNECT_BASE_URL** – Your Konnect API base URL (e.g. `https://api.konnect.network` or sandbox)
-   - **KONNECT_API_KEY** – API key / Bearer token if the Konnect History API requires authentication
-   - **KONNECT_HISTORY_PATH** – Path to the history/transactions endpoint (e.g. `/v1/transactions`). The addon appends `fromDate` and `toDate` as query parameters (YYYY-MM-DD).
-   - **TALLY_URL** – Default On-Prem URL (e.g. `http://localhost:9000`)
-   - **TALLY_CLOUD_URL** – (Optional) Default Cloud ERP URL for the web UI
-   - **TALLY_KONNECT_LEDGER** – Ledger name in Tally for Konnect side of the entry (e.g. `Konnect Bank`). Create this ledger under Bank Accounts or Current Assets in Tally if it doesn’t exist.
-   - **TALLY_DEFAULT_CREDIT_LEDGER** – Other side of the entry (e.g. `Cash` or `Sundry Debtors`)
+### 3. Configure Environment
+```bash
+cp .env.example .env
+# Edit .env with your database URL and generate an encryption key:
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
-## Konnect History API
+### 4. Run
+```bash
+npm run dev       # Backend with nodemon
+# or
+npm start         # Runs migrations, seeds, then starts server
+```
 
-The MVP expects a **date-filtered history** endpoint. The app calls:
+### 5. Build Frontend (if not already built)
+```bash
+npm run build:frontend
+```
 
-- **URL:** `{KONNECT_BASE_URL}{KONNECT_HISTORY_PATH}?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD`
-- **Method:** GET  
-- **Headers:** `Authorization: Bearer {KONNECT_API_KEY}` if `KONNECT_API_KEY` is set
+Open http://localhost:3001 in your browser.
 
-If your Konnect provider uses different parameter names (e.g. `startDate`/`endDate`) or a different response shape, update `src/konnect/client.js` (e.g. `normalizeResponse()` and the query params).
+## Deployment (Render.com)
 
-Expected response shape (one of):
+### Automatic (via render.yaml)
+1. Push to GitHub
+2. Go to [Render Dashboard](https://dashboard.render.com/) → New → Blueprint
+3. Connect your GitHub repo
+4. Render will use `render.yaml` to create the web service + database
 
-- Array of transactions, or  
-- `{ transactions: [ ... ] }`, or  
-- `{ data: [ ... ] }`, or  
-- `{ payments: [ ... ] }` (mapped to a standard transaction shape)
+### Manual Setup
+1. **Create PostgreSQL Database** on Render (or use [Neon](https://neon.tech) for free)
+2. **Create Web Service**:
+   - Runtime: Node
+   - Build: `npm install`
+   - Start: `npm start`
+   - Health Check: `/api/health`
+3. **Set Environment Variables**:
+   - `DATABASE_URL` — from your PostgreSQL provider
+   - `ENCRYPTION_KEY` — generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+   - `JWT_SECRET` — any random string
+   - `NODE_ENV` = `production`
+   - `CORS_ORIGIN` = `*`
+   - `LOG_LEVEL` = `info`
+   - `LOG_FORMAT` = `json`
 
-Each transaction should have (or be mapped to): `id`, `date`, `amount`, `type` (`credit`/`debit`), `description`.
+## Project Structure
 
-## Run
+```
+├── src/
+│   ├── server.js           # Express app + static file serving
+│   ├── config/             # Centralised env config
+│   ├── routes/             # API route definitions
+│   ├── controllers/        # Request handlers
+│   ├── services/           # Business logic (Tally XML, Fynd API, sync engine)
+│   ├── middleware/         # Error handling, validation, uploads, rate limiting
+│   ├── db/                 # Knex config, migrations, seeds
+│   └── utils/              # Encryption, logging, validators, errors
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx         # Main React application (1486 lines)
+│   │   ├── api.js          # Frontend API bridge
+│   │   └── index.js        # React entry point
+│   └── public/
+├── package.json            # Root package (backend deps + build scripts)
+├── render.yaml             # Render deployment config
+└── .env.example            # Environment template
+```
 
-1. **Open a terminal in the project folder** (the folder that contains `package.json`). For example:
+## API Endpoints
 
-   ```bash
-   cd "/Users/Swami/Cursor/Tally Konnect v2"
-   ```
-   (On Windows, use the path to your project, e.g. `cd "C:\Users\YourName\Tally Konnect v2"`.)
-
-2. Start the server:
-
-   ```bash
-   npm start
-   ```
-
-3. Open **http://localhost:3333** in a browser (Chrome, Firefox, Edge, etc.).
-
-4. **Connection**
-   - **On-Prem TallyERP**: Select “On-Prem TallyERP”, enter Tally URL (e.g. `http://localhost:9000` or `http://<LAN-IP>:9000`). Use **Test connection** to verify.
-   - **Cloud ERP**: Select “Cloud ERP”, enter your Cloud ERP URL and optional API key, then **Test connection**.
-
-5. **Import**: Set **From date** and **To date**, then click **Fetch & Import to Tally**. The app fetches from Konnect, maps to vouchers, and POSTs Import Data XML to the selected Tally (On-Prem or Cloud). Check Tally’s Day Book or registers to verify.
-
-Connection choices are saved in the browser (localStorage) so you can use the same settings from any machine that can reach the server and Tally.
-
-Use **Preview (fetch only)** to test Konnect and see transaction count without sending data to Tally.
-
-## Project structure
-
-- `src/config.js` – Reads `.env` (Konnect base URL, API key, Tally URL, ledger names).
-- `src/konnect/client.js` – Fetches history from Konnect with `fromDate`/`toDate`.
-- `src/tally/xmlBuilder.js` – Builds Tally Import Data XML (Receipt/Payment vouchers).
-- `src/tally/client.js` – POSTs XML to Tally (On-Prem or Cloud URL); `testConnection()` for connection check.
-- `src/mapper.js` – Maps Konnect transactions to voucher objects (date, amount, type, description).
-- `src/server.js` – Express server: `/api/import`, `/api/preview`, `/api/connection-defaults`, `/api/test-connection`.
-- `src/public/index.html` – Web UI: connection type (On-Prem / Cloud), URLs, Test connection, date range, import.
-
-## Tally side
-
-- Create a ledger for Konnect (e.g. **Konnect Bank**) under the appropriate group (e.g. Bank Accounts).
-- Ensure the other ledger (e.g. **Cash**) exists.
-- Vouchers are created as **Receipt** (for credits) and **Payment** (for debits) with Accounting Voucher View.
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/health` | Health check |
+| GET | `/api/tally-connection` | Get Tally connection settings |
+| PUT | `/api/tally-connection` | Update Tally connection |
+| POST | `/api/tally-connection/test` | Test Tally connectivity |
+| GET | `/api/dashboard/stats` | Dashboard statistics |
+| GET | `/api/configs` | Get all API configs |
+| PUT | `/api/configs/:moduleId` | Save API config |
+| PATCH | `/api/configs/:moduleId/toggle` | Toggle module |
+| POST | `/api/configs/:moduleId/test` | Test module connection |
+| GET | `/api/mappings` | Get field mappings |
+| POST | `/api/mappings` | Save mappings |
+| POST | `/api/mappings/upload` | Upload mapping file |
+| POST | `/api/import/upload` | Upload import data |
+| POST | `/api/import/generate-xml` | Generate Tally XML |
+| POST | `/api/import/party-masters-xml` | Generate party XML |
+| GET | `/api/b2b-settings` | Get B2B settings |
+| PUT | `/api/b2b-settings` | Update B2B settings |
+| GET | `/api/schedules` | Get all schedules |
+| PUT | `/api/schedules/:moduleId` | Update schedule |
+| POST | `/api/schedules/:moduleId/run` | Run sync now |
+| POST | `/api/save-all` | Save all config at once |
 
 ## License
 
-MIT
+ISC

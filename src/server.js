@@ -1,118 +1,125 @@
-/**
- * Tally Konnect Import Addon - MVP server.
- * Serves a simple UI to set date range, fetch from Konnect History API, and import into Tally.
- */
+// src/server.js
+// Tally Konnect Backend - Main Express Application
+require('dotenv').config();
 
 const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const compression = require('compression');
 const path = require('path');
-const { fetchHistory } = require('./konnect/client');
-const { importVouchers, testConnection } = require('./tally/client');
-const { konnectToTallyVouchers } = require('./mapper');
+
 const config = require('./config');
+const logger = require('./utils/logger');
+const routes = require('./routes');
+const { errorHandler, generalLimiter } = require('./middleware');
+const { testConnection: testDb } = require('./db');
+const SchedulerService = require('./services/scheduler.service');
 
 const app = express();
+
+// Trust proxy for Render.com (behind load balancer)
 app.set('trust proxy', 1);
-const PORT = process.env.PORT || 3333;
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// ===========================================
+// MIDDLEWARE
+// ===========================================
+app.use(helmet({
+  contentSecurityPolicy: false,  // Disable CSP to allow inline styles in React
+  crossOriginEmbedderPolicy: false,
+}));
+app.use(cors({
+  origin: config.security.corsOrigin,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+app.use(compression());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// Request logging
+if (process.env.NODE_ENV !== 'test') {
+  app.use(morgan('short', {
+    stream: { write: (msg) => logger.info(msg.trim()) },
+  }));
+}
 
-/** Default connection options for the UI (On-Prem URL, Cloud URL from env) */
-app.get('/api/connection-defaults', (req, res) => {
-  res.json({
-    onPremUrl: config.tally.url || 'http://localhost:9000',
-    cloudUrl: config.tally.cloudUrl || '',
+// Rate limiting
+app.use('/api', generalLimiter);
+
+// ===========================================
+// API ROUTES
+// ===========================================
+app.use('/api', routes);
+
+// ===========================================
+// SERVE REACT FRONTEND (production)
+// ===========================================
+const frontendBuildPath = path.join(__dirname, '..', 'frontend', 'build');
+app.use(express.static(frontendBuildPath));
+
+// All non-API routes serve the React app (SPA routing)
+app.get('*', (req, res, next) => {
+  // Skip if it's an API route
+  if (req.path.startsWith('/api')) return next();
+  res.sendFile(path.join(frontendBuildPath, 'index.html'), (err) => {
+    if (err) {
+      // If frontend build doesn't exist, show a helpful message
+      res.status(200).send(`
+        <html>
+          <head><title>Tally Konnect</title></head>
+          <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+            <h1>Tally Konnect API</h1>
+            <p>Backend is running. Frontend build not found.</p>
+            <p>Run <code>npm run build:frontend</code> to build the React UI.</p>
+            <p><a href="/api/health">API Health Check</a></p>
+          </body>
+        </html>
+      `);
+    }
   });
 });
 
-/** Test Tally connection (On-Prem or Cloud). Body: { connectionType, tallyUrl?, cloudUrl?, cloudApiKey? } */
-app.post('/api/test-connection', async (req, res) => {
-  const { connectionType, tallyUrl, cloudUrl, cloudApiKey } = req.body || {};
-  const url = connectionType === 'cloud' ? (cloudUrl || config.tally.cloudUrl) : (tallyUrl || config.tally.url);
-  if (!url || !url.trim()) {
-    return res.status(400).json({ ok: false, message: 'Please enter Tally URL (On-Prem) or Cloud ERP URL.' });
-  }
-  const headers = {};
-  if (connectionType === 'cloud' && cloudApiKey) {
-    headers.Authorization = `Bearer ${cloudApiKey}`;
-  }
-  try {
-    const result = await testConnection({ url: url.trim(), headers });
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ ok: false, message: err.message || 'Connection test failed' });
-  }
-});
+// Error handler (must be last)
+app.use(errorHandler);
 
-app.post('/api/import', async (req, res) => {
-  const fromDate = req.body.fromDate || req.query.fromDate;
-  const toDate = req.body.toDate || req.query.toDate;
-  const connectionType = req.body.connectionType || 'onprem';
-  const tallyUrl = req.body.tallyUrl;
-  const cloudUrl = req.body.cloudUrl;
-  const cloudApiKey = req.body.cloudApiKey;
-
-  if (!fromDate || !toDate) {
-    return res.status(400).json({
-      success: false,
-      error: 'Missing fromDate or toDate (use YYYY-MM-DD)',
-    });
-  }
-
-  const effectiveUrl = connectionType === 'cloud' ? (cloudUrl || config.tally.cloudUrl) : (tallyUrl || config.tally.url);
-  const tallyOptions = {};
-  if (effectiveUrl) tallyOptions.url = effectiveUrl.trim();
-  if (connectionType === 'cloud' && cloudApiKey) tallyOptions.headers = { Authorization: `Bearer ${cloudApiKey}` };
-
-  try {
-    const transactions = await fetchHistory(fromDate, toDate);
-    const vouchers = konnectToTallyVouchers(transactions);
-    const result = await importVouchers(vouchers, tallyOptions);
-
-    res.json({
-      success: result.success,
-      konnectFetched: transactions.length,
-      tallyCreated: result.created,
-      tallyAltered: result.altered,
-      tallyErrors: result.errors,
-      message: result.message,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      success: false,
-      error: err.message || 'Import failed',
-    });
-  }
-});
-
-app.get('/api/preview', async (req, res) => {
-  const fromDate = req.query.fromDate;
-  const toDate = req.query.toDate;
-  if (!fromDate || !toDate) {
-    return res.status(400).json({ error: 'Missing fromDate or toDate' });
-  }
-  try {
-    const transactions = await fetchHistory(fromDate, toDate);
-    const vouchers = konnectToTallyVouchers(transactions);
-    res.json({ count: vouchers.length, transactions, vouchers });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/** Health check for uptime monitoring and Render health checks */
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
+// ===========================================
+// START SERVER
+// ===========================================
+const PORT = process.env.PORT || 3001;
 const HOST = process.env.HOST || '0.0.0.0';
-app.listen(PORT, HOST, () => {
-  console.log(`Tally Konnect Import running at http://${HOST}:${PORT}`);
-  console.log('Use On-Prem TallyERP or Cloud ERP from any OS (Linux/Windows).');
-});
+
+async function start() {
+  // Test database connection
+  const dbOk = await testDb();
+  if (!dbOk) {
+    logger.error('Database connection failed — check DATABASE_URL');
+    // Don't exit — Render health checks will catch this
+  }
+
+  app.listen(PORT, HOST, () => {
+    logger.info({ port: PORT, host: HOST, env: process.env.NODE_ENV }, 'Tally Konnect server started');
+  });
+
+  // Initialize scheduler after DB is ready
+  if (dbOk) {
+    try {
+      await SchedulerService.init();
+    } catch (err) {
+      logger.error({ err }, 'Scheduler init failed');
+    }
+  }
+}
+
+// Graceful shutdown
+function shutdown(signal) {
+  logger.info({ signal }, 'Shutdown signal received');
+  SchedulerService.shutdown();
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+start();
