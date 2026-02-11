@@ -16,6 +16,10 @@ const { errorHandler, generalLimiter } = require('./middleware');
 const { testConnection: testDb } = require('./db');
 const SchedulerService = require('./services/scheduler.service');
 
+// Import DB operations
+const migration = require('./db/migrations/001_initial_schema');
+const { seed } = require('./db/seeds/run');
+
 const app = express();
 
 // Trust proxy for Render.com (behind load balancer)
@@ -65,7 +69,6 @@ app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next();
   res.sendFile(path.join(frontendBuildPath, 'index.html'), (err) => {
     if (err) {
-      // If frontend build doesn't exist, show a helpful message
       res.status(200).send(`
         <html>
           <head><title>Tally Konnect</title></head>
@@ -96,16 +99,33 @@ async function start() {
   if (!dbOk) {
     logger.error('Database connection failed — check DATABASE_URL');
     // Don't exit — Render health checks will catch this
+  } else {
+    // Run migrations and seeds on startup
+    try {
+      logger.info('Checking database schema...');
+      await migration.up();
+      logger.info('Database schema checked/updated');
+
+      await seed();
+      logger.info('Database seeded');
+    } catch (err) {
+      logger.error({ err }, 'Migration/Seed failed on startup');
+      // If migration fails, we should prbably exit or log heavily
+      // Don't exit process so Render can retry or keep running if partial failure
+    }
   }
 
   app.listen(PORT, HOST, () => {
     logger.info({ port: PORT, host: HOST, env: process.env.NODE_ENV }, 'Tally Konnect server started');
   });
 
-  // Initialize scheduler after DB is ready
+  // Initialize scheduler after DB is ready (even if partial failure, try to run)
   if (dbOk) {
     try {
-      await SchedulerService.init();
+      // Small delay to ensure tables exist if async creation lag (though await should handle it)
+      setTimeout(async () => {
+        await SchedulerService.init();
+      }, 2000);
     } catch (err) {
       logger.error({ err }, 'Scheduler init failed');
     }
