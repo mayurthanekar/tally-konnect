@@ -1,0 +1,20 @@
+{
+  "name": "tally-konnect-import",
+  "version": "1.0.0",
+  "description": "MVP addon: fetch from Konnect History API by date range and import into Tally Live Company",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": ["tally", "konnect", "import", "accounting"],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.0",
+    "dotenv": "^16.4.5",
+    "node-fetch": "^3.3.2"
+  }
+}

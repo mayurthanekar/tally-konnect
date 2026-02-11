@@ -1,0 +1,25 @@
+services:
+  - type: web
+    runtime: node
+    name: tally-konnect
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: KONNECT_BASE_URL
+        sync: false
+      - key: KONNECT_API_KEY
+        sync: false
+      - key: KONNECT_HISTORY_PATH
+        sync: false
+      - key: TALLY_URL
+        sync: false
+      - key: TALLY_CLOUD_URL
+        sync: false
+      - key: TALLY_KONNECT_LEDGER
+        sync: false
+      - key: TALLY_DEFAULT_CREDIT_LEDGER
+        sync: false
