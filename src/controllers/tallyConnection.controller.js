@@ -21,7 +21,17 @@ async function get(req, res, next) {
 // PUT /api/tally-connection
 async function update(req, res, next) {
   try {
-    const { host, port, platform } = req.body;
+    let { host, port, platform } = req.body;
+
+    // Handle full URL in host field
+    if (host && host.includes('://')) {
+      try {
+        const url = new URL(host);
+        const newPort = url.port || (url.protocol === 'https:' ? '443' : '80');
+        host = `${url.protocol}//${url.hostname}`;
+        port = newPort;
+      } catch (err) { /* fallback to original values */ }
+    }
 
     if (!validateTallyUrl(host)) {
       return res.status(400).json({ success: false, error: { code: 'INVALID_URL', message: 'Invalid Tally host URL' } });
@@ -44,7 +54,17 @@ async function update(req, res, next) {
 // POST /api/tally-connection/test
 async function test(req, res, next) {
   try {
-    const { host, port } = req.body;
+    let { host, port } = req.body;
+
+    // Handle full URL in host field
+    if (host && host.includes('://')) {
+      try {
+        const url = new URL(host);
+        const newPort = url.port || (url.protocol === 'https:' ? '443' : '80');
+        host = `${url.protocol}//${url.hostname}`;
+        port = newPort;
+      } catch (err) { /* fallback to original values */ }
+    }
 
     if (!validateTallyUrl(host)) {
       return res.status(400).json({ success: false, error: { code: 'INVALID_URL', message: 'Invalid Tally host URL' } });

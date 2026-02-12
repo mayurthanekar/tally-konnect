@@ -238,28 +238,28 @@ function StatusDot({ active }) {
 /* Icon helper - Fynd uses simple SVG icons */
 function Icon({ name, size = 16, color = "currentColor" }) {
   const icons = {
-    box: <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>,
-    cart: <><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></>,
-    refresh: <><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></>,
-    file: <><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></>,
-    clipboard: <><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></>,
-    play: <polygon points="5 3 19 12 5 21 5 3"/>,
-    download: <><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>,
-    upload: <><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></>,
-    check: <polyline points="20 6 9 17 4 12"/>,
-    x: <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>,
-    search: <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
-    settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></>,
-    link: <><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></>,
-    clock: <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>,
-    building: <><path d="M6 22V4a2 2 0 012-2h8a2 2 0 012 2v18"/><path d="M6 12H4a2 2 0 00-2 2v6a2 2 0 002 2h2"/><path d="M18 9h2a2 2 0 012 2v9a2 2 0 01-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></>,
-    grid: <><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></>,
-    zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>,
-    server: <><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></>,
-    wifi: <><path d="M5 12.55a11 11 0 0114.08 0"/><path d="M1.42 9a16 16 0 0121.16 0"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>,
-    monitor: <><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></>,
-    globe: <><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></>,
-    activity: <><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></>,
+    box: <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />,
+    cart: <><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" /></>,
+    refresh: <><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" /></>,
+    file: <><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /></>,
+    clipboard: <><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /></>,
+    play: <polygon points="5 3 19 12 5 21 5 3" />,
+    download: <><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></>,
+    upload: <><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></>,
+    check: <polyline points="20 6 9 17 4 12" />,
+    x: <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>,
+    search: <><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></>,
+    settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" /></>,
+    link: <><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" /></>,
+    clock: <><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></>,
+    building: <><path d="M6 22V4a2 2 0 012-2h8a2 2 0 012 2v18" /><path d="M6 12H4a2 2 0 00-2 2v6a2 2 0 002 2h2" /><path d="M18 9h2a2 2 0 012 2v9a2 2 0 01-2 2h-2" /><path d="M10 6h4" /><path d="M10 10h4" /><path d="M10 14h4" /><path d="M10 18h4" /></>,
+    grid: <><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></>,
+    zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />,
+    server: <><rect x="2" y="2" width="20" height="8" rx="2" ry="2" /><rect x="2" y="14" width="20" height="8" rx="2" ry="2" /><line x1="6" y1="6" x2="6.01" y2="6" /><line x1="6" y1="18" x2="6.01" y2="18" /></>,
+    wifi: <><path d="M5 12.55a11 11 0 0114.08 0" /><path d="M1.42 9a16 16 0 0121.16 0" /><path d="M8.53 16.11a6 6 0 016.95 0" /><line x1="12" y1="20" x2="12.01" y2="20" /></>,
+    monitor: <><rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></>,
+    globe: <><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" /></>,
+    activity: <><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -348,7 +348,7 @@ function DashboardPage({ configs, schedules, mappings, b2bSettings, importData, 
             <div style={{
               display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 20,
               background: isConnected ? T.greenBg : isError ? T.redBg : isChecking ? T.amberBg : "#F5F5F5",
-              border: `1px solid ${isConnected ? T.green+"30" : isError ? T.red+"30" : isChecking ? T.amber+"30" : T.border}`,
+              border: `1px solid ${isConnected ? T.green + "30" : isError ? T.red + "30" : isChecking ? T.amber + "30" : T.border}`,
             }}>
               <span style={{
                 width: 10, height: 10, borderRadius: "50%", display: "inline-block",
@@ -394,31 +394,40 @@ function DashboardPage({ configs, schedules, mappings, b2bSettings, importData, 
             </div>
           </div>
 
-          {/* URL + Port + Test */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 120px auto", gap: 10, alignItems: "end" }}>
+          {/* URL + Test */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={{ fontSize: 12, fontWeight: 500, color: T.text, fontFamily: T.font }}>
-                Tally Server URL
+                Tally Connection URL
               </label>
-              <input value={tallyConn.host} onChange={e => { updateConn("host", e.target.value); updateConn("status", "disconnected"); }}
-                placeholder={tallyConn.platform === "cloud" ? "https://tally.yourcompany.com" : "http://localhost"}
+              <input
+                value={tallyConn.port ? `${tallyConn.host}:${tallyConn.port}` : tallyConn.host}
+                onChange={e => {
+                  const val = e.target.value;
+                  try {
+                    // Try to parse URL to separate host and port
+                    if (val.includes('://')) {
+                      const url = new URL(val);
+                      updateConn("host", `${url.protocol}//${url.hostname}`);
+                      updateConn("port", url.port || "80");
+                    } else if (val.includes(':')) {
+                      const [h, p] = val.split(':');
+                      updateConn("host", h);
+                      updateConn("port", p);
+                    } else {
+                      updateConn("host", val);
+                      // Don't clear port if user is still typing
+                    }
+                  } catch (err) {
+                    updateConn("host", val);
+                  }
+                  updateConn("status", "disconnected");
+                }}
+                placeholder="http://localhost:9000"
                 style={{
                   width: "100%", padding: "9px 14px", background: T.bgInput, border: "1px solid " + T.border,
                   borderRadius: 4, color: T.accent, fontSize: 13, fontFamily: T.mono, outline: "none", boxSizing: "border-box",
                   transition: "border-color 0.15s",
-                }}
-                onFocus={e => e.target.style.borderColor = T.borderFocus}
-                onBlur={e => e.target.style.borderColor = T.border}
-              />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 500, color: T.text, fontFamily: T.font }}>Port</label>
-              <input value={tallyConn.port} onChange={e => { updateConn("port", e.target.value); updateConn("status", "disconnected"); }}
-                placeholder="9000"
-                style={{
-                  width: "100%", padding: "9px 14px", background: T.bgInput, border: "1px solid " + T.border,
-                  borderRadius: 4, color: T.text, fontSize: 13, fontFamily: T.mono, outline: "none", boxSizing: "border-box",
-                  textAlign: "center",
                 }}
                 onFocus={e => e.target.style.borderColor = T.borderFocus}
                 onBlur={e => e.target.style.borderColor = T.border}
@@ -648,7 +657,7 @@ function ApiConfigPage({ configs, setConfigs }) {
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }} onClick={e => e.stopPropagation()}>
                 <Toggle on={cfg.enabled} onChange={v => update(m.id, "enabled", v)} />
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textMuted} strokeWidth="2" style={{ transform: isOpen ? "rotate(180deg)" : "", transition: "transform 0.2s" }}><polyline points="6 9 12 15 18 9"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.textMuted} strokeWidth="2" style={{ transform: isOpen ? "rotate(180deg)" : "", transition: "transform 0.2s" }}><polyline points="6 9 12 15 18 9" /></svg>
               </div>
             </div>
 
@@ -710,13 +719,13 @@ function ApiConfigPage({ configs, setConfigs }) {
                     try {
                       const r = await api.testModuleConnection(m.id);
                       alert(r.data?.success ? `Connected (${r.data.responseTimeMs}ms)` : `Failed: ${r.data?.message}`);
-                    } catch(e) { alert('Error: ' + e.message); }
+                    } catch (e) { alert('Error: ' + e.message); }
                   }}><Icon name="search" size={12} /> Test Connection</Btn>
                   <Btn variant="primary" small onClick={async () => {
                     try {
                       await api.saveConfig(m.id, configs[m.id]);
                       alert("Config saved!");
-                    } catch(e) { alert('Error: ' + e.message); }
+                    } catch (e) { alert('Error: ' + e.message); }
                   }}><Icon name="check" size={12} color="#fff" /> Save</Btn>
                 </div>
               </div>
@@ -781,7 +790,7 @@ function FieldMappingPage({ mappings, setMappings }) {
             <Icon name="upload" size={14} color="#fff" /> Upload Mapping
           </Btn>
           <Btn variant="secondary" onClick={async () => {
-            try { const r = await api.loadSampleMapping(); setMappings(r.data || []); } catch(e) { setMappings(SAMPLE_MAPPING); }
+            try { const r = await api.loadSampleMapping(); setMappings(r.data || []); } catch (e) { setMappings(SAMPLE_MAPPING); }
           }}>
             <Icon name="zap" size={14} /> Load Sample
           </Btn>
@@ -863,7 +872,7 @@ function FieldMappingPage({ mappings, setMappings }) {
                       background: "none", border: "none", color: T.textMuted, cursor: "pointer",
                       opacity: 0.5, transition: "opacity 0.15s", padding: 4, borderRadius: 4,
                     }} onMouseEnter={e => { e.currentTarget.style.opacity = 1; e.currentTarget.style.background = T.redBg; }}
-                       onMouseLeave={e => { e.currentTarget.style.opacity = 0.5; e.currentTarget.style.background = "none"; }}>
+                      onMouseLeave={e => { e.currentTarget.style.opacity = 0.5; e.currentTarget.style.background = "none"; }}>
                       <Icon name="x" size={14} color={T.red} />
                     </button>
                   </td>
@@ -879,11 +888,11 @@ function FieldMappingPage({ mappings, setMappings }) {
 
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
         <Btn variant="secondary" onClick={async () => {
-          try { const r = await api.getMappingsJson(); navigator.clipboard.writeText(JSON.stringify(r.data, null, 2)); alert("Copied to clipboard!"); } catch(e) { alert(e.message); }
+          try { const r = await api.getMappingsJson(); navigator.clipboard.writeText(JSON.stringify(r.data, null, 2)); alert("Copied to clipboard!"); } catch (e) { alert(e.message); }
         }}><Icon name="clipboard" size={14} /> Copy as JSON</Btn>
         <Btn variant="secondary" onClick={() => api.exportMapping()}><Icon name="download" size={14} /> Export Mapping</Btn>
         <Btn variant="primary" onClick={async () => {
-          try { await api.saveMappings(mappings); alert("Mapping saved!"); } catch(e) { alert(e.message); }
+          try { await api.saveMappings(mappings); alert("Mapping saved!"); } catch (e) { alert(e.message); }
         }}><Icon name="check" size={14} color="#fff" /> Save Mapping Config</Btn>
       </div>
     </div>
@@ -1009,7 +1018,7 @@ function DataImportPage({ mappings, importData, setImportData }) {
               <Badge color={T.accent}>{columns.length} columns</Badge>
             </div>
             <Btn variant="danger" small onClick={async () => {
-              if (batchId) await api.clearImportData(batchId).catch(() => {});
+              if (batchId) await api.clearImportData(batchId).catch(() => { });
               setImportData([]); setFileName(""); setBatchId(null);
             }}>
               <Icon name="x" size={12} color={T.red} /> Clear
@@ -1017,7 +1026,7 @@ function DataImportPage({ mappings, importData, setImportData }) {
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
-            {[{k: "preview", l: "Data Preview", ic: "grid"}, {k: "xml", l: "Tally XML Output", ic: "file"}].map(t => (
+            {[{ k: "preview", l: "Data Preview", ic: "grid" }, { k: "xml", l: "Tally XML Output", ic: "file" }].map(t => (
               <button key={t.k} onClick={() => setTab(t.k)} style={{
                 padding: "8px 18px", borderRadius: 4, border: tab === t.k ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
                 background: tab === t.k ? T.accentBg : T.bgCard, color: tab === t.k ? T.accent : T.textMuted,
@@ -1285,7 +1294,7 @@ function SchedulerPage({ schedules, setSchedules }) {
                     try {
                       const r = await api.runNow(m.id);
                       alert(r.data?.error ? `Error: ${r.data.error}` : `Done: ${r.data?.success || 0} sent, ${r.data?.failed || 0} failed`);
-                    } catch(e) { alert(e.message); }
+                    } catch (e) { alert(e.message); }
                   }}><Icon name="play" size={12} color={T.green} /> Run Now</Btn>
                   <Btn variant="secondary" small onClick={async () => {
                     try {
@@ -1294,7 +1303,7 @@ function SchedulerPage({ schedules, setSchedules }) {
                       alert(logs.length > 0
                         ? logs.slice(0, 10).map(l => `${l.status} | ${new Date(l.startedAt).toLocaleString()} | ${l.recordsSent} sent`).join('\n')
                         : 'No logs yet');
-                    } catch(e) { alert(e.message); }
+                    } catch (e) { alert(e.message); }
                   }}><Icon name="grid" size={12} /> View Logs</Btn>
                 </div>
               </div>
@@ -1386,11 +1395,11 @@ export default function TallyKonnectApp() {
         tallyVersion: r.data.tally_version || "",
         companyName: r.data.company_name || "",
       }));
-    }).catch(() => {});
-    api.getConfigs().then(r => r.data && setConfigs(prev => ({ ...prev, ...r.data }))).catch(() => {});
-    api.getSchedules().then(r => r.data && setSchedules(prev => ({ ...prev, ...r.data }))).catch(() => {});
-    api.getMappings().then(r => r.data && Array.isArray(r.data) && r.data.length > 0 && setMappings(r.data)).catch(() => {});
-    api.getB2bSettings().then(r => r.data && setB2bSettings(prev => ({ ...prev, ...r.data }))).catch(() => {});
+    }).catch(() => { });
+    api.getConfigs().then(r => r.data && setConfigs(prev => ({ ...prev, ...r.data }))).catch(() => { });
+    api.getSchedules().then(r => r.data && setSchedules(prev => ({ ...prev, ...r.data }))).catch(() => { });
+    api.getMappings().then(r => r.data && Array.isArray(r.data) && r.data.length > 0 && setMappings(r.data)).catch(() => { });
+    api.getB2bSettings().then(r => r.data && setB2bSettings(prev => ({ ...prev, ...r.data }))).catch(() => { });
   }, []);
 
   return (
