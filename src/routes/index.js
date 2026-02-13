@@ -30,6 +30,7 @@ router.post('/auth/login', auth.login);
 router.get('/auth/me', protect, auth.me);
 router.get('/auth/users', protect, auth.listUsers);
 router.post('/auth/users', protect, auth.createUser);
+router.patch('/auth/users/:id', protect, auth.updateUser);
 router.delete('/auth/users/:id', protect, auth.deleteUser);
 
 // =============================================

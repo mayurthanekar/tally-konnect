@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
 const { db } = require('../db');
+const logger = require('../utils/logger');
 
 const JWT_SECRET = config.security.jwtSecret;
 const JWT_EXPIRY = '7d';
@@ -39,8 +40,8 @@ async function login(req, res, next) {
             }
         });
     } catch (err) {
-        console.error('LOGIN ERROR:', err);
-        res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message, stack: err.stack } });
+        logger.error({ err }, 'Login failed');
+        next(err);
     }
 }
 
@@ -71,6 +72,9 @@ async function createUser(req, res, next) {
         if (!email || !password) {
             return res.status(400).json({ success: false, error: { code: 'MISSING_FIELDS', message: 'Email and password required' } });
         }
+        if (password.length < 6) {
+            return res.status(400).json({ success: false, error: { code: 'WEAK_PASSWORD', message: 'Password must be at least 6 characters' } });
+        }
 
         const existing = await db('users').where({ email: email.toLowerCase().trim() }).first();
         if (existing) {
@@ -82,10 +86,41 @@ async function createUser(req, res, next) {
             email: email.toLowerCase().trim(),
             password_hash: hash,
             name: name || '',
-            role: role || 'user',
+            role: (role === 'admin' || role === 'user') ? role : 'user',
         }).returning(['id', 'email', 'name', 'role', 'is_active', 'created_at']);
 
+        logger.info({ email: user.email, role: user.role }, 'User created');
         res.status(201).json({ success: true, data: user });
+    } catch (err) { next(err); }
+}
+
+// PATCH /api/auth/users/:id  (admin only — update role)
+async function updateUser(req, res, next) {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin access required' } });
+        }
+
+        const { id } = req.params;
+        const { name, role, is_active } = req.body;
+
+        const updates = {};
+        if (name !== undefined) updates.name = name;
+        if (role === 'admin' || role === 'user') updates.role = role;
+        if (typeof is_active === 'boolean') updates.is_active = is_active;
+        updates.updated_at = new Date();
+
+        if (Object.keys(updates).length <= 1) {
+            return res.status(400).json({ success: false, error: { code: 'NO_CHANGES', message: 'Nothing to update' } });
+        }
+
+        const [user] = await db('users').where({ id }).update(updates).returning(['id', 'email', 'name', 'role', 'is_active']);
+        if (!user) {
+            return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
+        }
+
+        logger.info({ id, updates }, 'User updated');
+        res.json({ success: true, data: user });
     } catch (err) { next(err); }
 }
 
@@ -98,14 +133,18 @@ async function deleteUser(req, res, next) {
 
         const { id } = req.params;
 
-        // Prevent deleting yourself
         if (id === req.user.id) {
             return res.status(400).json({ success: false, error: { code: 'SELF_DELETE', message: 'Cannot delete your own account' } });
         }
 
-        await db('users').where({ id }).del();
+        const deleted = await db('users').where({ id }).del();
+        if (!deleted) {
+            return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
+        }
+
+        logger.info({ id }, 'User deleted');
         res.json({ success: true });
     } catch (err) { next(err); }
 }
 
-module.exports = { login, me, listUsers, createUser, deleteUser };
+module.exports = { login, me, listUsers, createUser, updateUser, deleteUser };

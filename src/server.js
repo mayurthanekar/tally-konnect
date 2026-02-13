@@ -20,7 +20,6 @@ const SchedulerService = require('./services/scheduler.service');
 const migration = require('./db/migrations/001_initial_schema');
 const migration002 = require('./db/migrations/002_users');
 const { seed } = require('./db/seeds/run');
-const bcrypt = require('bcryptjs');
 
 const app = express();
 
@@ -105,27 +104,23 @@ async function start() {
     try {
       logger.info('Checking database schema...');
       await migration.up();
-      await migration002.up();
-      logger.info('Database schema checked/updated');
+      logger.info('Migration 001 done');
+    } catch (err) {
+      logger.error({ err }, 'Migration 001 failed');
+    }
 
+    try {
+      await migration002.up();
+      logger.info('Migration 002 (users) done');
+    } catch (err) {
+      logger.error({ err }, 'Migration 002 failed');
+    }
+
+    try {
       await seed();
       logger.info('Database seeded');
-
-      // Seed admin user if no users exist
-      const { db: knex } = require('./db');
-      const userCount = await knex('users').count('* as count').first();
-      if (parseInt(userCount.count) === 0) {
-        const hash = await bcrypt.hash('Swami@2026', 12);
-        await knex('users').insert({
-          email: 'mayurt@gofynd.com',
-          password_hash: hash,
-          name: 'Mayur Thanekar',
-          role: 'admin',
-        });
-        logger.info('Admin user seeded: mayurt@gofynd.com');
-      }
     } catch (err) {
-      logger.error({ err }, 'Migration/Seed failed on startup');
+      logger.error({ err }, 'Seed failed');
     }
   }
 
