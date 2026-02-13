@@ -7,11 +7,12 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "build:frontend": "cd frontend && npm install && npm run build",
-    "build": "npm run build:frontend",
+    "package:bridge": "node scripts/package-bridge.js",
+    "build": "npm run build:frontend && npm run package:bridge",
     "db:migrate": "node src/db/migrations/run.js up",
     "db:migrate:down": "node src/db/migrations/run.js down",
     "db:seed": "node src/db/seeds/run.js",
-    "postinstall": "npm run build:frontend"
+    "postinstall": "npm run build:frontend && npm run package:bridge"
   },
   "engines": {
     "node": ">=18"

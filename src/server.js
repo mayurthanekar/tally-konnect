@@ -8,6 +8,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
 const path = require('path');
+const fs = require('fs');
 
 const config = require('./config');
 const logger = require('./utils/logger');
@@ -57,6 +58,21 @@ app.use('/api', generalLimiter);
 // API ROUTES
 // ===========================================
 app.use('/api', routes);
+
+// ===========================================
+// DESKTOP BRIDGE DOWNLOAD
+// ===========================================
+const publicPath = path.join(__dirname, '..', 'public');
+app.use('/downloads', express.static(path.join(publicPath, 'downloads')));
+
+app.get('/api/download/bridge', (req, res) => {
+  const zipPath = path.join(publicPath, 'downloads', 'TallyKonnectBridge.zip');
+  if (fs.existsSync(zipPath)) {
+    res.download(zipPath, 'TallyKonnectBridge.zip');
+  } else {
+    res.status(404).json({ success: false, error: { message: 'Bridge package not available. Please contact admin.' } });
+  }
+});
 
 // ===========================================
 // SERVE REACT FRONTEND (production)

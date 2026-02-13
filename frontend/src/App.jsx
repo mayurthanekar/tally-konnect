@@ -1476,7 +1476,8 @@ function UserManagementPage() {
 
 // --- DESKTOP BRIDGE PAGE ---
 function DesktopBridgePage({ tallyConn }) {
-  const RELEASE_URL = 'https://github.com/mayurthanekar/tally-konnect/releases/latest';
+  const DOWNLOAD_URL = '/api/download/bridge';
+  const GITHUB_URL = 'https://github.com/mayurthanekar/tally-konnect/releases/latest';
 
   const steps = [
     { icon: 'download', title: 'Download', desc: 'Download the Tally Konnect Bridge installer (.exe) from GitHub Releases and install it on your Windows machine where Tally Prime is running.' },
@@ -1533,17 +1534,22 @@ function DesktopBridgePage({ tallyConn }) {
         <p style={{ fontSize: 13, color: T.textMuted, marginBottom: 18, maxWidth: 400, margin: '0 auto 18px' }}>
           The Desktop Bridge runs on your Windows machine alongside Tally Prime. It creates a secure tunnel to this cloud dashboard.
         </p>
-        <button onClick={() => window.open(RELEASE_URL, '_blank')} style={{
+        <button onClick={() => window.location.href = DOWNLOAD_URL} style={{
           padding: '12px 32px', borderRadius: 8, border: 'none', background: T.accent, color: '#fff',
           fontSize: 14, fontWeight: 600, cursor: 'pointer', letterSpacing: '0.02em',
         }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
             <Icon name="download" size={16} color="#fff" />
-            Download Bridge Installer
+            Download Bridge Package
           </span>
         </button>
         <div style={{ fontSize: 11, color: T.textMuted, marginTop: 10 }}>
-          Requires Windows 10+ · Tally Prime must be installed
+          Requires Windows 10+ · Node.js 18+ · Tally Prime must be installed
+        </div>
+        <div style={{ marginTop: 8 }}>
+          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: T.accent, textDecoration: 'none' }}>
+            Or check GitHub Releases for pre-built .exe →
+          </a>
         </div>
       </Card>
 

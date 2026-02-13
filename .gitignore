@@ -9,3 +9,7 @@ node_modules/
 /tmp/
 uploads/
 tally-konnect-desktop/bin/
+
+# Generated packages
+public/downloads/
+.bridge-staging/
