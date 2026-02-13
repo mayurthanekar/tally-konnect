@@ -18,7 +18,9 @@ const SchedulerService = require('./services/scheduler.service');
 
 // Import DB operations
 const migration = require('./db/migrations/001_initial_schema');
+const migration002 = require('./db/migrations/002_users');
 const { seed } = require('./db/seeds/run');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 
@@ -36,7 +38,7 @@ app.use(cors({
   origin: config.security.corsOrigin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-bridge-key'],
 }));
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
@@ -98,20 +100,32 @@ async function start() {
   const dbOk = await testDb();
   if (!dbOk) {
     logger.error('Database connection failed — check DATABASE_URL');
-    // Don't exit — Render health checks will catch this
   } else {
     // Run migrations and seeds on startup
     try {
       logger.info('Checking database schema...');
       await migration.up();
+      await migration002.up();
       logger.info('Database schema checked/updated');
 
       await seed();
       logger.info('Database seeded');
+
+      // Seed admin user if no users exist
+      const { db: knex } = require('./db');
+      const userCount = await knex('users').count('* as count').first();
+      if (parseInt(userCount.count) === 0) {
+        const hash = await bcrypt.hash('Swami@2026', 12);
+        await knex('users').insert({
+          email: 'mayurt@gofynd.com',
+          password_hash: hash,
+          name: 'Mayur Thanekar',
+          role: 'admin',
+        });
+        logger.info('Admin user seeded: mayurt@gofynd.com');
+      }
     } catch (err) {
       logger.error({ err }, 'Migration/Seed failed on startup');
-      // If migration fails, we should prbably exit or log heavily
-      // Don't exit process so Render can retry or keep running if partial failure
     }
   }
 

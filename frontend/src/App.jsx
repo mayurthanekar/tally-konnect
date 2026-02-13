@@ -1327,63 +1327,55 @@ const NAV_ITEMS = [
 
 // --- LOGIN SCREEN ---
 function LoginScreen({ onLogin }) {
-  const [password, setPassword] = React.useState('');
-  const [error, setError] = React.useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (!password) return;
-    api.setPassword(password);
-    // Simple test: try to fetch health or stats
-    api.getDashboardStats()
-      .then(() => onLogin())
-      .catch(err => {
-        api.clearPassword();
-        setError('Invalid master password');
-      });
+    if (!email || !password) return;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.login(email, password);
+      api.setToken(res.data.token);
+      api.setStoredUser(res.data.user);
+      onLogin(res.data.user);
+    } catch (err) {
+      setError(err.message || 'Invalid email or password');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div style={{
-      height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: T.bg, fontFamily: T.font, color: T.text
-    }}>
-      <div style={{
-        width: 360, padding: 32, background: T.cardBg, borderRadius: 12,
-        border: `1px solid ${T.border}`, textAlign: 'center', boxShadow: '0 20px 50px rgba(0,0,0,0.3)'
-      }}>
-        <div style={{
-          width: 48, height: 48, borderRadius: 10, background: T.accent,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px'
-        }}>
-          <Icon name="lock" size={24} color="#fff" />
+    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.bg, fontFamily: T.font, color: T.text }}>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+      <div style={{ width: 380, padding: 36, background: T.bgCard, borderRadius: 12, border: `1px solid ${T.border}`, textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
+        <div style={{ width: 48, height: 48, borderRadius: 10, background: T.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+          <Icon name="zap" size={22} color="#fff" />
         </div>
-        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Restricted Access</h2>
-        <p style={{ fontSize: 13, color: T.textMuted, marginBottom: 24 }}>Enter Master Password to continue</p>
+        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Tally Konnect</h2>
+        <p style={{ fontSize: 13, color: T.textMuted, marginBottom: 28 }}>Sign in to your account</p>
 
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ textAlign: 'left' }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Email</label>
+            <input type="email" value={email} onChange={e => { setEmail(e.target.value); setError(''); }} placeholder="you@company.com" autoFocus
+              style={{ width: '100%', padding: '10px 14px', background: T.bgInput, border: `1px solid ${error ? T.red : T.border}`, borderRadius: 6, color: T.text, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+          </div>
           <div style={{ textAlign: 'left' }}>
             <label style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => { setPassword(e.target.value); setError(''); }}
-              placeholder="••••••••"
-              autoFocus
-              style={{
-                width: '100%', padding: '12px 14px', background: T.bgInput, border: `1px solid ${error ? T.rose : T.border}`,
-                borderRadius: 6, color: '#fff', fontSize: 14, outline: 'none', transition: 'all 0.15s',
-                boxSizing: 'border-box'
-              }}
-            />
-            {error && <div style={{ fontSize: 12, color: T.rose, marginTop: 6 }}>{error}</div>}
+            <input type="password" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} placeholder="••••••••"
+              style={{ width: '100%', padding: '10px 14px', background: T.bgInput, border: `1px solid ${error ? T.red : T.border}`, borderRadius: 6, color: T.text, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
           </div>
-          <button type="submit" style={{
-            width: '100%', padding: '12px 0', borderRadius: 6, border: 'none',
-            background: T.accent, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-            marginTop: 8
+          {error && <div style={{ fontSize: 12, color: T.red, textAlign: 'left' }}>{error}</div>}
+          <button type="submit" disabled={loading} style={{
+            width: '100%', padding: '11px 0', borderRadius: 6, border: 'none',
+            background: loading ? T.textMuted : T.accent, color: '#fff', fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', marginTop: 4
           }}>
-            Unlock Dashboard
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
       </div>
@@ -1391,11 +1383,103 @@ function LoginScreen({ onLogin }) {
   );
 }
 
+// --- USER MANAGEMENT (Admin only) ---
+function UserManagementPage() {
+  const [users, setUsers] = useState([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newUser, setNewUser] = useState({ email: '', password: '', name: '', role: 'user' });
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  useEffect(() => { api.getUsers().then(r => setUsers(r.data || [])).catch(() => { }); }, []);
+
+  const handleAdd = async (e) => {
+    e.preventDefault(); setError(''); setSuccess('');
+    if (!newUser.email || !newUser.password) { setError('Email and password required'); return; }
+    try {
+      await api.createUser(newUser);
+      setSuccess('User created!');
+      setNewUser({ email: '', password: '', name: '', role: 'user' });
+      setShowAdd(false);
+      api.getUsers().then(r => setUsers(r.data || []));
+      setTimeout(() => setSuccess(''), 2000);
+    } catch (err) { setError(err.message); }
+  };
+
+  const handleDelete = async (id, email) => {
+    if (!window.confirm(`Delete user ${email}?`)) return;
+    try { await api.deleteUser(id); setUsers(users.filter(u => u.id !== id)); } catch (err) { setError(err.message); }
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div>
+          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: T.textDark }}>User Management</h2>
+          <div style={{ fontSize: 13, color: T.textMuted, marginTop: 4 }}>Add or remove users who can access Tally Konnect</div>
+        </div>
+        <button onClick={() => setShowAdd(!showAdd)} style={{ padding: '8px 18px', borderRadius: 6, border: 'none', background: T.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          {showAdd ? 'Cancel' : '+ Add User'}
+        </button>
+      </div>
+      {success && <div style={{ padding: '10px 14px', background: T.greenBg, border: `1px solid ${T.greenBdr}`, borderRadius: 6, color: T.green, fontSize: 13, marginBottom: 16 }}>{success}</div>}
+      {error && <div style={{ padding: '10px 14px', background: T.redBg, border: `1px solid ${T.red}`, borderRadius: 6, color: T.red, fontSize: 13, marginBottom: 16 }}>{error}</div>}
+      {showAdd && (
+        <Card style={{ marginBottom: 20, padding: 20 }}>
+          <form onSubmit={handleAdd} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <Input label="Email" required value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} placeholder="user@company.com" />
+            <Input label="Password" required type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} placeholder="min 6 chars" />
+            <Input label="Name" value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} placeholder="Full name" />
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Role</label>
+              <select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}
+                style={{ width: '100%', padding: '9px 14px', background: T.bgInput, border: `1px solid ${T.border}`, borderRadius: 4, color: T.text, fontSize: 13 }}>
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end' }}>
+              <button type="submit" style={{ padding: '8px 24px', borderRadius: 6, border: 'none', background: T.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Create User</button>
+            </div>
+          </form>
+        </Card>
+      )}
+      <Card>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: `1px solid ${T.border}` }}>
+              {['Email', 'Name', 'Role', 'Created', 'Actions'].map(h => (
+                <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {users.map(u => (
+              <tr key={u.id} style={{ borderBottom: `1px solid ${T.border}` }}>
+                <td style={{ padding: '12px 14px', fontSize: 13, fontWeight: 500 }}>{u.email}</td>
+                <td style={{ padding: '12px 14px', fontSize: 13 }}>{u.name || '—'}</td>
+                <td style={{ padding: '12px 14px' }}>
+                  <span style={{ padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: u.role === 'admin' ? T.accentBg : T.greenBg, color: u.role === 'admin' ? T.accent : T.green }}>{u.role}</span>
+                </td>
+                <td style={{ padding: '12px 14px', fontSize: 12, color: T.textMuted }}>{new Date(u.created_at).toLocaleDateString()}</td>
+                <td style={{ padding: '12px 14px' }}>
+                  <button onClick={() => handleDelete(u.id, u.email)} style={{ padding: '4px 12px', borderRadius: 4, border: `1px solid ${T.red}`, background: 'transparent', color: T.red, fontSize: 12, cursor: 'pointer' }}>Delete</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}
+
 // --- MAIN WRAPPER ---
 export default function TallyKonnectApp() {
-  const [isAuth, setIsAuth] = React.useState(api.isLoggedIn());
-  const [page, setPage] = React.useState("dashboard");
+  const [currentUser, setCurrentUser] = useState(api.getStoredUser());
+  const [page, setPage] = useState("dashboard");
   const [saveStatus, setSaveStatus] = useState(null);
+  const isAuth = !!currentUser;
 
   const [configs, setConfigs] = useState(() => {
     const init = {};
@@ -1470,7 +1554,9 @@ export default function TallyKonnectApp() {
     api.getB2bSettings().then(r => r.data && setB2bSettings(prev => ({ ...prev, ...r.data }))).catch(() => { });
   }, []);
 
-  if (!isAuth) return <LoginScreen onLogin={() => setIsAuth(true)} />;
+  const handleLogout = () => { api.clearToken(); setCurrentUser(null); };
+
+  if (!isAuth) return <LoginScreen onLogin={(user) => setCurrentUser(user)} />;
 
   return (
     <div style={{ display: "flex", height: "100vh", background: T.bg, fontFamily: T.font, color: T.text, overflow: "hidden" }}>
@@ -1548,10 +1634,23 @@ export default function TallyKonnectApp() {
               Windows Bridge App
             </button>
           </div>
+          {currentUser?.role === 'admin' && (
+            <div style={{ padding: "16px 16px 8px 16px", borderTop: "1px solid #2D2D35" }}>
+              <div style={{ fontSize: 10, color: "#6B6B78", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 8 }}>Admin</div>
+              <button onClick={() => setPage('users')} style={{
+                display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 0",
+                background: "transparent", border: "none", color: page === 'users' ? '#fff' : T.sidebarText,
+                fontSize: 13, fontWeight: page === 'users' ? 600 : 400, cursor: "pointer", fontFamily: T.font, textAlign: "left",
+              }}>
+                <Icon name="users" size={16} color={page === 'users' ? T.accent : T.sidebarText} />
+                Users
+              </button>
+            </div>
+          )}
         </nav>
 
-        {/* Save */}
-        <div style={{ padding: "14px 16px", borderTop: `1px solid ${T.sidebarBorder}` }}>
+        {/* Save + Logout */}
+        <div style={{ padding: "14px 16px", borderTop: `1px solid ${T.sidebarBorder}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <button onClick={handleSave} style={{
             width: "100%", padding: "10px 0", borderRadius: 4, border: "none",
             background: saveStatus === "saved" ? T.green : T.accent,
@@ -1559,6 +1658,12 @@ export default function TallyKonnectApp() {
             fontFamily: T.font, transition: "all 0.2s", letterSpacing: "0.02em",
           }}>
             {saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved!" : "Save All Config"}
+          </button>
+          <button onClick={handleLogout} style={{
+            width: "100%", padding: "8px 0", borderRadius: 4, border: `1px solid ${T.sidebarBorder}`,
+            background: "transparent", color: T.sidebarText, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: T.font,
+          }}>
+            Sign out ({currentUser?.email?.split('@')[0]})
           </button>
         </div>
       </div>
@@ -1572,6 +1677,7 @@ export default function TallyKonnectApp() {
           {page === "import" && <DataImportPage mappings={mappings} importData={importData} setImportData={setImportData} />}
           {page === "b2b" && <B2BSettingsPage b2bSettings={b2bSettings} setB2bSettings={setB2bSettings} importData={importData} />}
           {page === "scheduler" && <SchedulerPage schedules={schedules} setSchedules={setSchedules} />}
+          {page === "users" && <UserManagementPage />}
         </div>
       </div>
     </div>

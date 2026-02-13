@@ -14,6 +14,7 @@ const scheduler = require('../controllers/scheduler.controller');
 const global = require('../controllers/global.controller');
 
 const { protect, protectBridge } = require('../middleware/auth.middleware');
+const auth = require('../controllers/auth.controller');
 
 const router = Router();
 
@@ -21,6 +22,15 @@ const router = Router();
 // HEALTH CHECK (Public)
 // =============================================
 router.get('/health', global.health);
+
+// =============================================
+// AUTHENTICATION (Public: login only)
+// =============================================
+router.post('/auth/login', auth.login);
+router.get('/auth/me', protect, auth.me);
+router.get('/auth/users', protect, auth.listUsers);
+router.post('/auth/users', protect, auth.createUser);
+router.delete('/auth/users/:id', protect, auth.deleteUser);
 
 // =============================================
 // PROTECT ALL SUBSEQUENT ROUTES

@@ -1,26 +1,34 @@
 // src/middleware/auth.middleware.js
+const jwt = require('jsonwebtoken');
 const config = require('../config');
 
+const JWT_SECRET = config.security.jwtSecret;
+
 /**
- * Middleware to verify the master password for general API access.
- * Expects 'x-api-password' header or Bearer token (JWT placeholder).
+ * Middleware to verify JWT token for authenticated access.
+ * Expects 'Authorization: Bearer <token>' header.
  */
 function protect(req, res, next) {
-    const masterPassword = config.security.masterPassword;
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
 
-    // Skip auth if no password is set (allowing user to set it up)
-    if (!masterPassword) return next();
-
-    const userPassword = req.headers['x-api-password'] || req.headers['authorization']?.split(' ')[1];
-
-    if (userPassword === masterPassword) {
-        return next();
+    if (!token) {
+        return res.status(401).json({
+            success: false,
+            error: { code: 'UNAUTHORIZED', message: 'Authentication required. Please log in.' }
+        });
     }
 
-    res.status(401).json({
-        success: false,
-        error: { code: 'UNAUTHORIZED', message: 'Master password required' }
-    });
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.user = decoded; // { id, email, role, name }
+        next();
+    } catch (err) {
+        return res.status(401).json({
+            success: false,
+            error: { code: 'TOKEN_EXPIRED', message: 'Session expired. Please log in again.' }
+        });
+    }
 }
 
 /**
@@ -30,11 +38,9 @@ function protect(req, res, next) {
 function protectBridge(req, res, next) {
     const bridgeKey = config.security.bridgeApiKey;
 
-    // If no bridge key is set, we still allow update (risk acknowledged for MVP setup)
-    // or we can strictly require it. Let's strictly require it for security.
     if (!bridgeKey) {
         console.warn('WARNING: BRIDGE_API_KEY not set. Bridge updates will be blocked.');
-        return res.status(500).json({ success: false, error: 'Server security misconfiguration' });
+        return res.status(500).json({ success: false, error: { code: 'CONFIG_ERROR', message: 'Server security misconfiguration' } });
     }
 
     const providedKey = req.headers['x-bridge-key'];

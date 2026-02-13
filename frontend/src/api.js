@@ -1,36 +1,38 @@
 // src/api.js  -  Frontend API Bridge
 // Every function here maps to a backend endpoint
-// Used by App.jsx to replace all setTimeout / fake actions
+// Uses JWT Bearer token for authentication
 
 const BASE = process.env.REACT_APP_API_URL || '/api';
 
+function getToken() {
+  return localStorage.getItem('tally_konnect_token') || '';
+}
+
+function getHeaders(includeContentType = true) {
+  const h = {};
+  if (includeContentType) h['Content-Type'] = 'application/json';
+  const token = getToken();
+  if (token) h['Authorization'] = `Bearer ${token}`;
+  return h;
+}
+
 async function request(method, path, body = null) {
-  const pwd = localStorage.getItem('tally_konnect_pwd');
-  const opts = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-password': pwd || ''
-    }
-  };
+  const opts = { method, headers: getHeaders() };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(`${BASE}${path}`, opts);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `Request failed: ${res.status}`);
+    const msg = err.error?.message || `Request failed: ${res.status}`;
+    const error = new Error(msg);
+    error.status = res.status;
+    error.code = err.error?.code;
+    throw error;
   }
   return res.json();
 }
 
 function downloadBlob(method, path, body, filename) {
-  const pwd = localStorage.getItem('tally_konnect_pwd');
-  const opts = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-password': pwd || ''
-    }
-  };
+  const opts = { method, headers: getHeaders() };
   if (body) opts.body = JSON.stringify(body);
   return fetch(`${BASE}${path}`, opts).then(r => r.blob()).then(blob => {
     const a = document.createElement('a');
@@ -43,6 +45,20 @@ function downloadBlob(method, path, body, filename) {
 }
 
 const api = {
+  // Auth
+  login: (email, password) => request('POST', '/auth/login', { email, password }),
+  getMe: () => request('GET', '/auth/me'),
+  getUsers: () => request('GET', '/auth/users'),
+  createUser: (data) => request('POST', '/auth/users', data),
+  deleteUser: (id) => request('DELETE', `/auth/users/${id}`),
+
+  // Token management
+  setToken: (token) => { localStorage.setItem('tally_konnect_token', token); },
+  clearToken: () => { localStorage.removeItem('tally_konnect_token'); localStorage.removeItem('tally_konnect_user'); },
+  getStoredUser: () => { try { return JSON.parse(localStorage.getItem('tally_konnect_user')); } catch { return null; } },
+  setStoredUser: (user) => { localStorage.setItem('tally_konnect_user', JSON.stringify(user)); },
+  isLoggedIn: () => !!localStorage.getItem('tally_konnect_token'),
+
   // Tally Connection
   getTallyConnection: () => request('GET', '/tally-connection'),
   updateTallyConnection: (data) => request('PUT', '/tally-connection', data),
@@ -63,8 +79,7 @@ const api = {
   saveMappings: (mappings) => request('POST', '/mappings', { mappings }),
   uploadMapping: (file) => {
     const fd = new FormData(); fd.append('file', file);
-    const pwd = localStorage.getItem('tally_konnect_pwd');
-    return fetch(`${BASE}/mappings/upload`, { method: 'POST', body: fd, headers: { 'x-api-password': pwd || '' } }).then(r => r.json());
+    return fetch(`${BASE}/mappings/upload`, { method: 'POST', body: fd, headers: { 'Authorization': `Bearer ${getToken()}` } }).then(r => r.json());
   },
   exportMapping: () => downloadBlob('GET', '/mappings/export', null, 'tally-konnect-mapping.json'),
   getMappingsJson: () => request('GET', '/mappings/json'),
@@ -74,8 +89,7 @@ const api = {
   // Data Import
   uploadImportFile: (file) => {
     const fd = new FormData(); fd.append('file', file);
-    const pwd = localStorage.getItem('tally_konnect_pwd');
-    return fetch(`${BASE}/import/upload`, { method: 'POST', body: fd, headers: { 'x-api-password': pwd || '' } }).then(r => r.json());
+    return fetch(`${BASE}/import/upload`, { method: 'POST', body: fd, headers: { 'Authorization': `Bearer ${getToken()}` } }).then(r => r.json());
   },
   getImportData: (batchId) => request('GET', `/import/data/${batchId}`),
   clearImportData: (batchId) => request('DELETE', `/import/data/${batchId}`),
@@ -98,11 +112,6 @@ const api = {
   // Global
   saveAll: (data) => request('POST', '/save-all', data),
   health: () => request('GET', '/health'),
-
-  // Auth
-  setPassword: (pwd) => { localStorage.setItem('tally_konnect_pwd', pwd); },
-  clearPassword: () => { localStorage.removeItem('tally_konnect_pwd'); },
-  isLoggedIn: () => !!localStorage.getItem('tally_konnect_pwd'),
 };
 
 export default api;
