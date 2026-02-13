@@ -38,7 +38,10 @@ async function login(req, res, next) {
                 user: { id: user.id, email: user.email, name: user.name, role: user.role }
             }
         });
-    } catch (err) { next(err); }
+    } catch (err) {
+        console.error('LOGIN ERROR:', err);
+        res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message, stack: err.stack } });
+    }
 }
 
 // GET /api/auth/me
