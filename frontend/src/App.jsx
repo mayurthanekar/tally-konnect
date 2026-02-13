@@ -1325,8 +1325,76 @@ const NAV_ITEMS = [
   { id: "scheduler", label: "Scheduler", icon: "clock" },
 ];
 
+// --- LOGIN SCREEN ---
+function LoginScreen({ onLogin }) {
+  const [password, setPassword] = React.useState('');
+  const [error, setError] = React.useState('');
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (!password) return;
+    api.setPassword(password);
+    // Simple test: try to fetch health or stats
+    api.getDashboardStats()
+      .then(() => onLogin())
+      .catch(err => {
+        api.clearPassword();
+        setError('Invalid master password');
+      });
+  };
+
+  return (
+    <div style={{
+      height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: T.bg, fontFamily: T.font, color: T.text
+    }}>
+      <div style={{
+        width: 360, padding: 32, background: T.cardBg, borderRadius: 12,
+        border: `1px solid ${T.border}`, textAlign: 'center', boxShadow: '0 20px 50px rgba(0,0,0,0.3)'
+      }}>
+        <div style={{
+          width: 48, height: 48, borderRadius: 10, background: T.accent,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px'
+        }}>
+          <Icon name="lock" size={24} color="#fff" />
+        </div>
+        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Restricted Access</h2>
+        <p style={{ fontSize: 13, color: T.textMuted, marginBottom: 24 }}>Enter Master Password to continue</p>
+
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ textAlign: 'left' }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => { setPassword(e.target.value); setError(''); }}
+              placeholder="••••••••"
+              autoFocus
+              style={{
+                width: '100%', padding: '12px 14px', background: T.bgInput, border: `1px solid ${error ? T.rose : T.border}`,
+                borderRadius: 6, color: '#fff', fontSize: 14, outline: 'none', transition: 'all 0.15s',
+                boxSizing: 'border-box'
+              }}
+            />
+            {error && <div style={{ fontSize: 12, color: T.rose, marginTop: 6 }}>{error}</div>}
+          </div>
+          <button type="submit" style={{
+            width: '100%', padding: '12px 0', borderRadius: 6, border: 'none',
+            background: T.accent, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+            marginTop: 8
+          }}>
+            Unlock Dashboard
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// --- MAIN WRAPPER ---
 export default function TallyKonnectApp() {
-  const [page, setPage] = useState("dashboard");
+  const [isAuth, setIsAuth] = React.useState(api.isLoggedIn());
+  const [page, setPage] = React.useState("dashboard");
   const [saveStatus, setSaveStatus] = useState(null);
 
   const [configs, setConfigs] = useState(() => {
@@ -1402,6 +1470,8 @@ export default function TallyKonnectApp() {
     api.getB2bSettings().then(r => r.data && setB2bSettings(prev => ({ ...prev, ...r.data }))).catch(() => { });
   }, []);
 
+  if (!isAuth) return <LoginScreen onLogin={() => setIsAuth(true)} />;
+
   return (
     <div style={{ display: "flex", height: "100vh", background: T.bg, fontFamily: T.font, color: T.text, overflow: "hidden" }}>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -1463,6 +1533,21 @@ export default function TallyKonnectApp() {
               </button>
             );
           })}
+
+          <div style={{ padding: "16px 16px 8px 16px", marginTop: 10, borderTop: "1px solid #2D2D35" }}>
+            <div style={{ fontSize: 10, color: "#6B6B78", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 8 }}>Downloads</div>
+            <button onClick={() => window.open('https://github.com/mayurthanekar/tally-konnect/releases/latest', '_blank')} style={{
+              display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 0",
+              background: "transparent", border: "none", color: T.sidebarText,
+              fontSize: 13, fontWeight: 400, cursor: "pointer", fontFamily: T.font, textAlign: "left", transition: "all 0.15s",
+            }}
+              onMouseEnter={e => e.target.style.color = "#fff"}
+              onMouseLeave={e => e.target.style.color = T.sidebarText}
+            >
+              <Icon name="download" size={16} color={T.sidebarText} />
+              Windows Bridge App
+            </button>
+          </div>
         </nav>
 
         {/* Save */}

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Tally Konnect Bridge</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #1F1F25;
+      color: #FFFFFF;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+    .status-card {
+      background-color: #2D2D35;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      width: 300px;
+    }
+    .status-indicator {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background-color: #888;
+      display: inline-block;
+      margin-right: 8px;
+    }
+    .status-text {
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .url-display {
+      margin-top: 15px;
+      padding: 10px;
+      background-color: #1F1F25;
+      border-radius: 4px;
+      font-family: monospace;
+      color: #ABABBA;
+      word-break: break-all;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background-color: #2E31BE;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background-color: #5A5CE6;
+    }
+  </style>
+</head>
+<body>
+  <h1>Tally Konnect Bridge</h1>
+  
+  <div class="status-card">
+    <div>
+      <span id="status-dot" class="status-indicator"></span>
+      <span id="status-text" class="status-text">Disconnected</span>
+    </div>
+    <div id="url-container" class="url-display" style="display: none;">
+      Connect to begin
+    </div>
+  </div>
+
+  <button id="connect-btn">Connect to Tally</button>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

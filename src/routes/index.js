@@ -13,74 +13,78 @@ const b2b = require('../controllers/b2bSettings.controller');
 const scheduler = require('../controllers/scheduler.controller');
 const global = require('../controllers/global.controller');
 
+const { protect, protectBridge } = require('../middleware/auth.middleware');
+
 const router = Router();
 
 // =============================================
-// HEALTH CHECK
+// HEALTH CHECK (Public)
 // =============================================
 router.get('/health', global.health);
 
 // =============================================
-// TALLY CONNECTION (Dashboard)
+// PROTECT ALL SUBSEQUENT ROUTES
 // =============================================
-router.get('/tally-connection', tallyConn.get);
-router.put('/tally-connection', validate(v.tallyConnectionUpdate), auditLog('tally-connection-update'), tallyConn.update);
-router.post('/tally-connection/test', testConnectionLimiter, validate(v.tallyConnectionTest), tallyConn.test);
+// router.use(protect); // We can't use router.use because tally-connection needs dual auth
 
 // =============================================
-// DASHBOARD
+// TALLY CONNECTION (Dashboard + Bridge)
 // =============================================
-router.get('/dashboard/stats', dashboard.getStats);
-router.post('/sync/run-all', auditLog('sync-run-all'), dashboard.runAll);
+router.get('/tally-connection', protect, tallyConn.get);
 
-// =============================================
-// API CONFIGURATION
-// =============================================
-router.get('/configs', apiConfig.getAll);
-router.put('/configs/:moduleId', validate(v.apiConfigUpdate), auditLog('config-save'), apiConfig.save);
-router.patch('/configs/:moduleId/toggle', auditLog('config-toggle'), apiConfig.toggle);
-router.post('/configs/:moduleId/test', testConnectionLimiter, apiConfig.testConnection);
+// Allow either standard auth OR bridge auth for updates
+router.put('/tally-connection',
+    (req, res, next) => {
+        // If it's the bridge, it uses x-bridge-key
+        if (req.headers['x-bridge-key']) return protectBridge(req, res, next);
+        // Otherwise it's the dashboard UI
+        return protect(req, res, next);
+    },
+    validate(v.tallyConnectionUpdate),
+    auditLog('tally-connection-update'),
+    tallyConn.update
+);
 
-// =============================================
-// FIELD MAPPING
-// =============================================
-router.get('/mappings', mapping.getAll);
-router.post('/mappings', validate(v.fieldMappingSave), auditLog('mapping-save'), mapping.save);
-router.post('/mappings/upload', upload.single('file'), mapping.upload);
-router.get('/mappings/export', mapping.exportMapping);
-router.get('/mappings/json', mapping.getJson);
-router.post('/mappings/sample', auditLog('mapping-load-sample'), mapping.loadSample);
-router.get('/mappings/validate', mapping.validate);
+router.post('/tally-connection/test', protect, testConnectionLimiter, validate(v.tallyConnectionTest), tallyConn.test);
 
-// =============================================
-// DATA IMPORT
-// =============================================
-router.post('/import/upload', upload.single('file'), dataImport.uploadFile);
-router.get('/import/data/:batchId', dataImport.getData);
-router.delete('/import/data/:batchId', dataImport.clearData);
-router.post('/import/generate-xml', validate(v.generateXmlRequest), dataImport.generateXml);
-router.post('/import/party-masters-xml', validate(v.generateXmlRequest), dataImport.generatePartyXml);
-router.post('/import/sample', dataImport.loadSample);
+// Apply protect middleware to all remaining routes
+const protectedRouter = Router();
+protectedRouter.use(protect);
 
-// =============================================
-// B2B SETTINGS
-// =============================================
-router.get('/b2b-settings', b2b.get);
-router.put('/b2b-settings', validate(v.b2bSettingsUpdate), auditLog('b2b-settings-update'), b2b.update);
-router.get('/b2b-settings/parties', b2b.getParties);
+// Re-map other routes through the protected router or just add protect to each
+router.get('/dashboard/stats', protect, dashboard.getStats);
+router.post('/sync/run-all', protect, auditLog('sync-run-all'), dashboard.runAll);
 
-// =============================================
-// SCHEDULER
-// =============================================
-router.get('/schedules', scheduler.getAll);
-router.put('/schedules/:moduleId', validate(v.scheduleUpdate), auditLog('schedule-update'), scheduler.save);
-router.patch('/schedules/:moduleId/toggle', auditLog('schedule-toggle'), scheduler.toggle);
-router.post('/schedules/:moduleId/run', auditLog('schedule-run-now'), scheduler.runNow);
-router.get('/schedules/:moduleId/logs', scheduler.getLogs);
+router.get('/configs', protect, apiConfig.getAll);
+router.put('/configs/:moduleId', protect, validate(v.apiConfigUpdate), auditLog('config-save'), apiConfig.save);
+router.patch('/configs/:moduleId/toggle', protect, auditLog('config-toggle'), apiConfig.toggle);
+router.post('/configs/:moduleId/test', protect, testConnectionLimiter, apiConfig.testConnection);
 
-// =============================================
-// GLOBAL
-// =============================================
-router.post('/save-all', auditLog('save-all'), global.saveAll);
+router.get('/mappings', protect, mapping.getAll);
+router.post('/mappings', protect, validate(v.fieldMappingSave), auditLog('mapping-save'), mapping.save);
+router.post('/mappings/upload', protect, upload.single('file'), mapping.upload);
+router.get('/mappings/export', protect, mapping.exportMapping);
+router.get('/mappings/json', protect, mapping.getJson);
+router.post('/mappings/sample', protect, auditLog('mapping-load-sample'), mapping.loadSample);
+router.get('/mappings/validate', protect, mapping.validate);
+
+router.post('/import/upload', protect, upload.single('file'), dataImport.uploadFile);
+router.get('/import/data/:batchId', protect, dataImport.getData);
+router.delete('/import/data/:batchId', protect, dataImport.clearData);
+router.post('/import/generate-xml', protect, validate(v.generateXmlRequest), dataImport.generateXml);
+router.post('/import/party-masters-xml', protect, validate(v.generateXmlRequest), dataImport.generatePartyXml);
+router.post('/import/sample', protect, dataImport.loadSample);
+
+router.get('/b2b-settings', protect, b2b.get);
+router.put('/b2b-settings', protect, validate(v.b2bSettingsUpdate), auditLog('b2b-settings-update'), b2b.update);
+router.get('/b2b-settings/parties', protect, b2b.getParties);
+
+router.get('/schedules', protect, scheduler.getAll);
+router.put('/schedules/:moduleId', protect, validate(v.scheduleUpdate), auditLog('schedule-update'), scheduler.save);
+router.patch('/schedules/:moduleId/toggle', protect, auditLog('schedule-toggle'), scheduler.toggle);
+router.post('/schedules/:moduleId/run', protect, auditLog('schedule-run-now'), scheduler.runNow);
+router.get('/schedules/:moduleId/logs', protect, scheduler.getLogs);
+
+router.post('/save-all', protect, auditLog('save-all'), global.saveAll);
 
 module.exports = router;

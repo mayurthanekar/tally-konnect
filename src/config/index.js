@@ -23,10 +23,13 @@ const config = {
   },
 
   // Security
+  runMigrations: process.env.RUN_MIGRATIONS === 'true' || true,
   security: {
     encryptionKey: process.env.ENCRYPTION_KEY || '',
     jwtSecret: process.env.JWT_SECRET || 'dev-jwt-secret-change-me',
-    corsOrigin: process.env.CORS_ORIGIN || '*',
+    corsOrigin: process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? 'https://tally-konnect.onrender.com' : '*'),
+    masterPassword: process.env.MASTER_PASSWORD || '', // Human login
+    bridgeApiKey: process.env.BRIDGE_API_KEY || '',     // Tally Bridge Agent
   },
 
   // Rate limiting
