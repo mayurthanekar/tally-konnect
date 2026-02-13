@@ -1474,6 +1474,131 @@ function UserManagementPage() {
   );
 }
 
+// --- DESKTOP BRIDGE PAGE ---
+function DesktopBridgePage({ tallyConn }) {
+  const RELEASE_URL = 'https://github.com/mayurthanekar/tally-konnect/releases/latest';
+
+  const steps = [
+    { icon: 'download', title: 'Download', desc: 'Download the Tally Konnect Bridge installer (.exe) from GitHub Releases and install it on your Windows machine where Tally Prime is running.' },
+    { icon: 'settings', title: 'Configure', desc: 'Launch the Bridge app. It will auto-detect Tally Prime on localhost:9000. If Tally runs on a different port, update the settings.' },
+    { icon: 'zap', title: 'Connect', desc: 'Click "Start Tunnel" in the Bridge app. It creates a secure Cloudflare tunnel and registers with this cloud dashboard automatically.' },
+    { icon: 'check-circle', title: 'Syncing', desc: 'Once connected, all API calls, schedules, and data imports configured here are routed through the tunnel to your local Tally Prime.' },
+  ];
+
+  return (
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: T.textDark }}>Desktop Bridge</h2>
+        <div style={{ fontSize: 13, color: T.textMuted, marginTop: 4 }}>Connect your local Tally Prime to the cloud dashboard</div>
+      </div>
+
+      {/* Status Banner */}
+      <Card style={{ marginBottom: 20, padding: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{
+            width: 42, height: 42, borderRadius: 10,
+            background: tallyConn?.status === 'connected' ? T.greenBg : T.amberBg,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Icon name={tallyConn?.status === 'connected' ? 'check-circle' : 'alert-triangle'} size={20}
+              color={tallyConn?.status === 'connected' ? T.green : T.amber} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: T.textDark }}>
+              {tallyConn?.status === 'connected' ? 'Bridge Connected' : 'Bridge Not Connected'}
+            </div>
+            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>
+              {tallyConn?.status === 'connected'
+                ? `Tally Prime ${tallyConn.tallyVersion || ''} — ${tallyConn.companyName || 'Unknown Company'}`
+                : 'Install and launch the Desktop Bridge on your Windows machine to connect.'}
+            </div>
+          </div>
+          <div style={{
+            padding: '4px 12px', borderRadius: 99, fontSize: 11, fontWeight: 600,
+            background: tallyConn?.status === 'connected' ? T.greenBg : T.redBg,
+            color: tallyConn?.status === 'connected' ? T.green : T.red,
+            border: `1px solid ${tallyConn?.status === 'connected' ? T.greenBdr : T.red}`,
+          }}>
+            {tallyConn?.status || 'disconnected'}
+          </div>
+        </div>
+      </Card>
+
+      {/* Download CTA */}
+      <Card style={{ marginBottom: 20, padding: 24, textAlign: 'center', background: `linear-gradient(135deg, ${T.accentBg}, ${T.bgCard})` }}>
+        <div style={{ width: 56, height: 56, borderRadius: 14, background: T.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <Icon name="download" size={26} color="#fff" />
+        </div>
+        <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 6px', color: T.textDark }}>Download for Windows</h3>
+        <p style={{ fontSize: 13, color: T.textMuted, marginBottom: 18, maxWidth: 400, margin: '0 auto 18px' }}>
+          The Desktop Bridge runs on your Windows machine alongside Tally Prime. It creates a secure tunnel to this cloud dashboard.
+        </p>
+        <button onClick={() => window.open(RELEASE_URL, '_blank')} style={{
+          padding: '12px 32px', borderRadius: 8, border: 'none', background: T.accent, color: '#fff',
+          fontSize: 14, fontWeight: 600, cursor: 'pointer', letterSpacing: '0.02em',
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+            <Icon name="download" size={16} color="#fff" />
+            Download Bridge Installer
+          </span>
+        </button>
+        <div style={{ fontSize: 11, color: T.textMuted, marginTop: 10 }}>
+          Requires Windows 10+ · Tally Prime must be installed
+        </div>
+      </Card>
+
+      {/* How it Works */}
+      <Card style={{ marginBottom: 20, padding: 20 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 16px', color: T.textDark }}>How It Works</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          {steps.map((s, i) => (
+            <div key={i} style={{ display: 'flex', gap: 12, padding: 14, background: T.bg, borderRadius: 8, border: `1px solid ${T.border}` }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: 8, background: T.accentBg, flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>{i + 1}</span>
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: T.textDark, marginBottom: 4 }}>{s.title}</div>
+                <div style={{ fontSize: 12, color: T.textMuted, lineHeight: 1.5 }}>{s.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Architecture */}
+      <Card style={{ padding: 20 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 16px', color: T.textDark }}>Architecture</h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap', padding: 16 }}>
+          {[
+            { label: 'Tally Prime', sub: 'localhost:9000', color: T.blue },
+            { label: '→', sub: '', color: T.textMuted },
+            { label: 'Desktop Bridge', sub: 'Electron App', color: T.accent },
+            { label: '→', sub: '', color: T.textMuted },
+            { label: 'Cloudflare Tunnel', sub: 'Encrypted', color: T.purple },
+            { label: '→', sub: '', color: T.textMuted },
+            { label: 'Cloud Dashboard', sub: 'This app', color: T.green },
+          ].map((item, i) => (
+            item.sub === '' ? (
+              <span key={i} style={{ fontSize: 18, color: T.textMuted, fontWeight: 300 }}>{item.label}</span>
+            ) : (
+              <div key={i} style={{
+                padding: '12px 18px', borderRadius: 8, textAlign: 'center', minWidth: 100,
+                background: T.bg, border: `1px solid ${T.border}`,
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: item.color }}>{item.label}</div>
+                <div style={{ fontSize: 10, color: T.textMuted, marginTop: 3 }}>{item.sub}</div>
+              </div>
+            )
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 // --- MAIN WRAPPER ---
 export default function TallyKonnectApp() {
   const [currentUser, setCurrentUser] = useState(api.getStoredUser());
@@ -1621,17 +1746,14 @@ export default function TallyKonnectApp() {
           })}
 
           <div style={{ padding: "16px 16px 8px 16px", marginTop: 10, borderTop: "1px solid #2D2D35" }}>
-            <div style={{ fontSize: 10, color: "#6B6B78", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 8 }}>Downloads</div>
-            <button onClick={() => window.open('https://github.com/mayurthanekar/tally-konnect/releases/latest', '_blank')} style={{
+            <div style={{ fontSize: 10, color: "#6B6B78", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 8 }}>Tools</div>
+            <button onClick={() => setPage('bridge')} style={{
               display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 0",
-              background: "transparent", border: "none", color: T.sidebarText,
-              fontSize: 13, fontWeight: 400, cursor: "pointer", fontFamily: T.font, textAlign: "left", transition: "all 0.15s",
-            }}
-              onMouseEnter={e => e.target.style.color = "#fff"}
-              onMouseLeave={e => e.target.style.color = T.sidebarText}
-            >
-              <Icon name="download" size={16} color={T.sidebarText} />
-              Windows Bridge App
+              background: "transparent", border: "none", color: page === 'bridge' ? '#fff' : T.sidebarText,
+              fontSize: 13, fontWeight: page === 'bridge' ? 600 : 400, cursor: "pointer", fontFamily: T.font, textAlign: "left",
+            }}>
+              <Icon name="download" size={16} color={page === 'bridge' ? T.accent : T.sidebarText} />
+              Desktop Bridge
             </button>
           </div>
           {currentUser?.role === 'admin' && (
@@ -1678,6 +1800,7 @@ export default function TallyKonnectApp() {
           {page === "b2b" && <B2BSettingsPage b2bSettings={b2bSettings} setB2bSettings={setB2bSettings} importData={importData} />}
           {page === "scheduler" && <SchedulerPage schedules={schedules} setSchedules={setSchedules} />}
           {page === "users" && <UserManagementPage />}
+          {page === "bridge" && <DesktopBridgePage tallyConn={tallyConn} />}
         </div>
       </div>
     </div>
