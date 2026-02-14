@@ -1325,148 +1325,258 @@ const NAV_ITEMS = [
   { id: "scheduler", label: "Scheduler", icon: "clock" },
 ];
 
-// --- LOGIN SCREEN ---
+// --- LOGIN SCREEN (SSO + OTP) ---
 function LoginScreen({ onLogin }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [authConfig, setAuthConfig] = useState({ google: false, microsoft: false, emailOtp: true, mobileOtp: false });
+  const [mode, setMode] = useState('email');
+  const [step, setStep] = useState('input');
+  const [identifier, setIdentifier] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+  const otpRefs = [useRef(), useRef(), useRef(), useRef(), useRef(), useRef()];
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    if (!email || !password) return;
-    setLoading(true);
-    setError('');
-    try {
-      const res = await api.login(email, password);
-      api.setToken(res.data.token);
-      api.setStoredUser(res.data.user);
-      onLogin(res.data.user);
-    } catch (err) {
-      setError(err.message || 'Invalid email or password');
-    } finally {
-      setLoading(false);
+  useEffect(() => { api.getAuthConfig().then(r => setAuthConfig(r.data)).catch(() => { }); }, []);
+  useEffect(() => { if (resendTimer <= 0) return; const t = setTimeout(() => setResendTimer(r => r - 1), 1000); return () => clearTimeout(t); }, [resendTimer]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    const userParam = params.get('user');
+    const authError = params.get('error');
+    if (token && userParam) {
+      try {
+        api.setToken(token);
+        const user = JSON.parse(atob(decodeURIComponent(userParam)));
+        api.setStoredUser(user);
+        window.history.replaceState({}, '', '/');
+        onLogin(user);
+      } catch { setError('Authentication failed. Please try again.'); window.history.replaceState({}, '', '/'); }
+    } else if (authError) {
+      setError(authError.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase()));
+      window.history.replaceState({}, '', '/');
     }
+  }, [onLogin]);
+
+  const handleSendOtp = async () => {
+    if (!identifier) return;
+    setLoading(true); setError('');
+    try {
+      if (mode === 'email') await api.sendEmailOtp(identifier);
+      else await api.sendMobileOtp(identifier);
+      setStep('otp'); setResendTimer(30);
+      setTimeout(() => otpRefs[0].current?.focus(), 100);
+    } catch (err) { setError(err.message); } finally { setLoading(false); }
   };
+
+  const handleOtpChange = (index, value) => {
+    if (!/^\d*$/.test(value)) return;
+    const n = [...otp]; n[index] = value.slice(-1); setOtp(n); setError('');
+    if (value && index < 5) otpRefs[index + 1].current?.focus();
+    if (value && index === 5 && n.every(d => d)) verifyOtpCode(n.join(''));
+  };
+
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) otpRefs[index - 1].current?.focus();
+    if (e.key === 'Enter' && otp.every(d => d)) verifyOtpCode(otp.join(''));
+  };
+
+  const handleOtpPaste = (e) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pasted.length === 6) { setOtp(pasted.split('')); otpRefs[5].current?.focus(); setTimeout(() => verifyOtpCode(pasted), 100); }
+  };
+
+  const verifyOtpCode = async (code) => {
+    setLoading(true); setError('');
+    try {
+      const res = await api.verifyOtp(identifier, code, mode);
+      api.setToken(res.data.token); api.setStoredUser(res.data.user); onLogin(res.data.user);
+    } catch (err) { setError(err.message); setOtp(['', '', '', '', '', '']); otpRefs[0].current?.focus(); } finally { setLoading(false); }
+  };
+
+  const handleResend = async () => {
+    if (resendTimer > 0) return;
+    setOtp(['', '', '', '', '', '']); setError(''); setLoading(true);
+    try { if (mode === 'email') await api.sendEmailOtp(identifier); else await api.sendMobileOtp(identifier); setResendTimer(30); } catch (err) { setError(err.message); } finally { setLoading(false); }
+  };
+
+  const googleSvg = `<svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>`;
+  const msSvg = `<svg width="18" height="18" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>`;
+
+  const SsoBtn = ({ svg, label, hoverColor, onClick }) => (
+    <button onClick={onClick} disabled={loading} style={{ width: '100%', padding: '11px 0', borderRadius: 8, border: `1px solid ${T.border}`, background: T.bgCard, color: T.text, fontFamily: T.font, fontSize: 14, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'all 0.15s' }}
+      onMouseEnter={e => { e.currentTarget.style.background = T.bg; e.currentTarget.style.borderColor = hoverColor; }}
+      onMouseLeave={e => { e.currentTarget.style.background = T.bgCard; e.currentTarget.style.borderColor = T.border; }}>
+      <span dangerouslySetInnerHTML={{ __html: svg }} />{label}
+    </button>
+  );
 
   return (
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.bg, fontFamily: T.font, color: T.text }}>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-      <div style={{ width: 380, padding: 36, background: T.bgCard, borderRadius: 12, border: `1px solid ${T.border}`, textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
+      <div style={{ width: 400, padding: 36, background: T.bgCard, borderRadius: 12, border: `1px solid ${T.border}`, textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
         <div style={{ width: 48, height: 48, borderRadius: 10, background: T.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
           <Icon name="zap" size={22} color="#fff" />
         </div>
         <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Tally Konnect</h2>
-        <p style={{ fontSize: 13, color: T.textMuted, marginBottom: 28 }}>Sign in to your account</p>
+        <p style={{ fontSize: 13, color: T.textMuted, marginBottom: 24 }}>{step === 'otp' ? 'Enter the 6-digit code sent to' : 'Sign in or create your account'}</p>
 
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ textAlign: 'left' }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Email</label>
-            <input type="email" value={email} onChange={e => { setEmail(e.target.value); setError(''); }} placeholder="you@company.com" autoFocus
-              style={{ width: '100%', padding: '10px 14px', background: T.bgInput, border: `1px solid ${error ? T.red : T.border}`, borderRadius: 6, color: T.text, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+        {step === 'otp' && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: T.textDark, marginBottom: 4 }}>{identifier}</div>
+            <button onClick={() => { setStep('input'); setOtp(['', '', '', '', '', '']); setError(''); }} style={{ background: 'none', border: 'none', color: T.accent, fontSize: 12, cursor: 'pointer', fontFamily: T.font, textDecoration: 'underline' }}>Change</button>
           </div>
-          <div style={{ textAlign: 'left' }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Password</label>
-            <input type="password" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} placeholder="••••••••"
-              style={{ width: '100%', padding: '10px 14px', background: T.bgInput, border: `1px solid ${error ? T.red : T.border}`, borderRadius: 6, color: T.text, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
-          </div>
-          {error && <div style={{ fontSize: 12, color: T.red, textAlign: 'left' }}>{error}</div>}
-          <button type="submit" disabled={loading} style={{
-            width: '100%', padding: '11px 0', borderRadius: 6, border: 'none',
-            background: loading ? T.textMuted : T.accent, color: '#fff', fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', marginTop: 4
-          }}>
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
+        )}
+
+        {step === 'input' && (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+              {authConfig.google && <SsoBtn svg={googleSvg} label="Continue with Google" hoverColor="#4285F4" onClick={() => api.googleLogin()} />}
+              {authConfig.microsoft && <SsoBtn svg={msSvg} label="Continue with Microsoft" hoverColor="#00A4EF" onClick={() => api.microsoftLogin()} />}
+            </div>
+            {(authConfig.google || authConfig.microsoft) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                <div style={{ flex: 1, height: 1, background: T.border }} />
+                <span style={{ fontSize: 11, color: T.textMuted, textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>or continue with</span>
+                <div style={{ flex: 1, height: 1, background: T.border }} />
+              </div>
+            )}
+            {authConfig.mobileOtp && (
+              <div style={{ display: 'flex', borderRadius: 6, border: `1px solid ${T.border}`, overflow: 'hidden', marginBottom: 14 }}>
+                {['email', 'mobile'].map(t => (
+                  <button key={t} onClick={() => { setMode(t); setIdentifier(''); setError(''); }} style={{ flex: 1, padding: '8px 0', border: 'none', fontSize: 12, fontWeight: 600, background: mode === t ? T.accent : 'transparent', color: mode === t ? '#fff' : T.textMuted, cursor: 'pointer', fontFamily: T.font, transition: 'all 0.15s', textTransform: 'capitalize' }}>{t}</button>
+                ))}
+              </div>
+            )}
+            <div style={{ textAlign: 'left', marginBottom: 14 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>{mode === 'email' ? 'Email Address' : 'Mobile Number'}</label>
+              <input type={mode === 'email' ? 'email' : 'tel'} value={identifier} onChange={e => { setIdentifier(e.target.value); setError(''); }} placeholder={mode === 'email' ? 'you@company.com' : '+91 98765 43210'} autoFocus onKeyDown={e => { if (e.key === 'Enter' && identifier) handleSendOtp(); }}
+                style={{ width: '100%', padding: '10px 14px', background: T.bgInput, border: `1px solid ${error ? T.red : T.border}`, borderRadius: 6, color: T.text, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            {error && <div style={{ fontSize: 12, color: T.red, textAlign: 'left', marginBottom: 10 }}>{error}</div>}
+            <button onClick={handleSendOtp} disabled={loading || !identifier} style={{ width: '100%', padding: '11px 0', borderRadius: 6, border: 'none', background: loading || !identifier ? T.textMuted : T.accent, color: '#fff', fontSize: 14, fontWeight: 600, cursor: loading || !identifier ? 'not-allowed' : 'pointer', fontFamily: T.font }}>
+              {loading ? 'Sending...' : 'Send Verification Code'}
+            </button>
+          </>
+        )}
+
+        {step === 'otp' && (
+          <>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 16 }}>
+              {otp.map((digit, i) => (
+                <input key={i} ref={otpRefs[i]} type="text" inputMode="numeric" maxLength={1} value={digit}
+                  onChange={e => handleOtpChange(i, e.target.value)} onKeyDown={e => handleOtpKeyDown(i, e)}
+                  onPaste={i === 0 ? handleOtpPaste : undefined}
+                  style={{ width: 44, height: 52, textAlign: 'center', fontSize: 20, fontWeight: 700, border: `2px solid ${error ? T.red : digit ? T.accent : T.border}`, borderRadius: 8, outline: 'none', background: T.bgInput, color: T.textDark, fontFamily: T.mono, transition: 'border-color 0.15s' }}
+                  onFocus={e => e.target.style.borderColor = T.accent} onBlur={e => { if (!digit) e.target.style.borderColor = T.border; }} />
+              ))}
+            </div>
+            {error && <div style={{ fontSize: 12, color: T.red, marginBottom: 10 }}>{error}</div>}
+            <button onClick={() => verifyOtpCode(otp.join(''))} disabled={loading || otp.some(d => !d)} style={{ width: '100%', padding: '11px 0', borderRadius: 6, border: 'none', background: loading || otp.some(d => !d) ? T.textMuted : T.accent, color: '#fff', fontSize: 14, fontWeight: 600, cursor: loading || otp.some(d => !d) ? 'not-allowed' : 'pointer', fontFamily: T.font, marginBottom: 12 }}>
+              {loading ? 'Verifying...' : 'Verify & Sign In'}
+            </button>
+            <div style={{ fontSize: 12, color: T.textMuted }}>
+              Didn't receive the code?{' '}
+              {resendTimer > 0 ? <span>Resend in {resendTimer}s</span> : (
+                <button onClick={handleResend} style={{ background: 'none', border: 'none', color: T.accent, fontSize: 12, cursor: 'pointer', fontFamily: T.font, textDecoration: 'underline' }}>Resend</button>
+              )}
+            </div>
+          </>
+        )}
+        <div style={{ marginTop: 20, fontSize: 11, color: T.textDim }}>By signing in, you agree to the terms of use.</div>
       </div>
     </div>
   );
 }
 
 // --- USER MANAGEMENT (Admin only) ---
-function UserManagementPage() {
+function UserManagementPage({ currentUser }) {
   const [users, setUsers] = useState([]);
-  const [showAdd, setShowAdd] = useState(false);
-  const [newUser, setNewUser] = useState({ email: '', password: '', name: '', role: 'user' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const SUPER_ADMINS = ['mayurt@gofynd.com', 'mayur.thanekar@gmail.com'];
 
   useEffect(() => { api.getUsers().then(r => setUsers(r.data || [])).catch(() => { }); }, []);
 
-  const handleAdd = async (e) => {
-    e.preventDefault(); setError(''); setSuccess('');
-    if (!newUser.email || !newUser.password) { setError('Email and password required'); return; }
+  const handleToggleActive = async (u) => {
+    if (SUPER_ADMINS.includes(u.email)) { setError('Cannot modify a super admin'); return; }
     try {
-      await api.createUser(newUser);
-      setSuccess('User created!');
-      setNewUser({ email: '', password: '', name: '', role: 'user' });
-      setShowAdd(false);
-      api.getUsers().then(r => setUsers(r.data || []));
+      const res = await api.updateUser(u.id, { is_active: !u.is_active });
+      setUsers(users.map(x => x.id === u.id ? { ...x, ...res.data } : x));
+      setSuccess(`User ${!u.is_active ? 'activated' : 'deactivated'}`);
+      setTimeout(() => setSuccess(''), 2000);
+    } catch (err) { setError(err.message); }
+  };
+
+  const handleRoleChange = async (u, newRole) => {
+    if (SUPER_ADMINS.includes(u.email)) { setError('Cannot change role of a super admin'); return; }
+    try {
+      const res = await api.updateUser(u.id, { role: newRole });
+      setUsers(users.map(x => x.id === u.id ? { ...x, ...res.data } : x));
+      setSuccess('Role updated');
       setTimeout(() => setSuccess(''), 2000);
     } catch (err) { setError(err.message); }
   };
 
   const handleDelete = async (id, email) => {
+    if (SUPER_ADMINS.includes(email)) { setError('Cannot delete a super admin'); return; }
     if (!window.confirm(`Delete user ${email}?`)) return;
     try { await api.deleteUser(id); setUsers(users.filter(u => u.id !== id)); } catch (err) { setError(err.message); }
   };
 
+  const providerBadge = (provider) => {
+    const map = { google: { l: 'Google', bg: '#E8F0FE', c: '#1A73E8' }, microsoft: { l: 'Microsoft', bg: '#E8F5FD', c: '#00A4EF' }, email_otp: { l: 'Email', bg: T.accentBg, c: T.accent }, mobile_otp: { l: 'Mobile', bg: T.amberBg, c: T.amber }, password: { l: 'Legacy', bg: T.bg, c: T.textMuted } };
+    const p = map[provider] || map.email_otp;
+    return <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600, background: p.bg, color: p.c }}>{p.l}</span>;
+  };
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: T.textDark }}>User Management</h2>
-          <div style={{ fontSize: 13, color: T.textMuted, marginTop: 4 }}>Add or remove users who can access Tally Konnect</div>
-        </div>
-        <button onClick={() => setShowAdd(!showAdd)} style={{ padding: '8px 18px', borderRadius: 6, border: 'none', background: T.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          {showAdd ? 'Cancel' : '+ Add User'}
-        </button>
+      <div style={{ marginBottom: 20 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: T.textDark }}>User Management</h2>
+        <div style={{ fontSize: 13, color: T.textMuted, marginTop: 4 }}>Users auto-register via Google, Microsoft, or Email OTP</div>
       </div>
       {success && <div style={{ padding: '10px 14px', background: T.greenBg, border: `1px solid ${T.greenBdr}`, borderRadius: 6, color: T.green, fontSize: 13, marginBottom: 16 }}>{success}</div>}
-      {error && <div style={{ padding: '10px 14px', background: T.redBg, border: `1px solid ${T.red}`, borderRadius: 6, color: T.red, fontSize: 13, marginBottom: 16 }}>{error}</div>}
-      {showAdd && (
-        <Card style={{ marginBottom: 20, padding: 20 }}>
-          <form onSubmit={handleAdd} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <Input label="Email" required value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} placeholder="user@company.com" />
-            <Input label="Password" required type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} placeholder="min 6 chars" />
-            <Input label="Name" value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} placeholder="Full name" />
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Role</label>
-              <select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}
-                style={{ width: '100%', padding: '9px 14px', background: T.bgInput, border: `1px solid ${T.border}`, borderRadius: 4, color: T.text, fontSize: 13 }}>
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end' }}>
-              <button type="submit" style={{ padding: '8px 24px', borderRadius: 6, border: 'none', background: T.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Create User</button>
-            </div>
-          </form>
-        </Card>
-      )}
+      {error && <div style={{ padding: '10px 14px', background: T.redBg, border: `1px solid ${T.red}`, borderRadius: 6, color: T.red, fontSize: 13, marginBottom: 16 }}>{error}<button onClick={() => setError('')} style={{ float: 'right', background: 'none', border: 'none', color: T.red, cursor: 'pointer', fontSize: 16 }}>×</button></div>}
       <Card>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${T.border}` }}>
-              {['Email', 'Name', 'Role', 'Created', 'Actions'].map(h => (
+              {['User', 'Auth', 'Role', 'Status', 'Joined', 'Actions'].map(h => (
                 <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {users.map(u => (
-              <tr key={u.id} style={{ borderBottom: `1px solid ${T.border}` }}>
-                <td style={{ padding: '12px 14px', fontSize: 13, fontWeight: 500 }}>{u.email}</td>
-                <td style={{ padding: '12px 14px', fontSize: 13 }}>{u.name || '—'}</td>
-                <td style={{ padding: '12px 14px' }}>
-                  <span style={{ padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: u.role === 'admin' ? T.accentBg : T.greenBg, color: u.role === 'admin' ? T.accent : T.green }}>{u.role}</span>
-                </td>
-                <td style={{ padding: '12px 14px', fontSize: 12, color: T.textMuted }}>{new Date(u.created_at).toLocaleDateString()}</td>
-                <td style={{ padding: '12px 14px' }}>
-                  <button onClick={() => handleDelete(u.id, u.email)} style={{ padding: '4px 12px', borderRadius: 4, border: `1px solid ${T.red}`, background: 'transparent', color: T.red, fontSize: 12, cursor: 'pointer' }}>Delete</button>
-                </td>
-              </tr>
-            ))}
+            {users.map(u => {
+              const isSA = SUPER_ADMINS.includes(u.email);
+              const isSelf = u.id === currentUser?.id;
+              return (
+                <tr key={u.id} style={{ borderBottom: `1px solid ${T.border}` }}>
+                  <td style={{ padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {u.avatar_url ? <img src={u.avatar_url} alt="" style={{ width: 32, height: 32, borderRadius: 99 }} /> : (
+                        <div style={{ width: 32, height: 32, borderRadius: 99, background: T.accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: T.accent }}>{(u.name || u.email || '?')[0].toUpperCase()}</div>
+                      )}
+                      <div><div style={{ fontSize: 13, fontWeight: 500 }}>{u.email}</div><div style={{ fontSize: 11, color: T.textMuted }}>{u.name || '—'}</div></div>
+                    </div>
+                  </td>
+                  <td style={{ padding: '12px 14px' }}>{providerBadge(u.auth_provider)}</td>
+                  <td style={{ padding: '12px 14px' }}>
+                    {isSA ? <span style={{ padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: '#FFF3E0', color: '#E65100' }}>super admin</span> : (
+                      <select value={u.role} onChange={e => handleRoleChange(u, e.target.value)} disabled={isSelf} style={{ padding: '3px 8px', borderRadius: 4, border: `1px solid ${T.border}`, fontSize: 12, background: T.bgInput, color: T.text, cursor: isSelf ? 'not-allowed' : 'pointer' }}>
+                        <option value="user">user</option><option value="admin">admin</option>
+                      </select>
+                    )}
+                  </td>
+                  <td style={{ padding: '12px 14px' }}><Toggle on={u.is_active} size="sm" onChange={() => handleToggleActive(u)} /></td>
+                  <td style={{ padding: '12px 14px', fontSize: 12, color: T.textMuted }}>{new Date(u.created_at).toLocaleDateString()}</td>
+                  <td style={{ padding: '12px 14px' }}>{!isSA && !isSelf && <button onClick={() => handleDelete(u.id, u.email)} style={{ padding: '4px 12px', borderRadius: 4, border: `1px solid ${T.red}`, background: 'transparent', color: T.red, fontSize: 12, cursor: 'pointer' }}>Delete</button>}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </Card>
@@ -1805,7 +1915,7 @@ export default function TallyKonnectApp() {
           {page === "import" && <DataImportPage mappings={mappings} importData={importData} setImportData={setImportData} />}
           {page === "b2b" && <B2BSettingsPage b2bSettings={b2bSettings} setB2bSettings={setB2bSettings} importData={importData} />}
           {page === "scheduler" && <SchedulerPage schedules={schedules} setSchedules={setSchedules} />}
-          {page === "users" && <UserManagementPage />}
+          {page === "users" && <UserManagementPage currentUser={currentUser} />}
           {page === "bridge" && <DesktopBridgePage tallyConn={tallyConn} />}
         </div>
       </div>

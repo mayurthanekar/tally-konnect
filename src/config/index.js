@@ -22,14 +22,46 @@ const config = {
     },
   },
 
+  // App URL (for OAuth callbacks)
+  appUrl: process.env.APP_URL || (process.env.NODE_ENV === 'production' ? 'https://tally-konnect.onrender.com' : 'http://localhost:3001'),
+
   // Security
-  runMigrations: process.env.RUN_MIGRATIONS === 'true' || true,
+  runMigrations: process.env.RUN_MIGRATIONS !== 'false',
   security: {
     encryptionKey: process.env.ENCRYPTION_KEY || '',
     jwtSecret: process.env.JWT_SECRET || 'dev-jwt-secret-change-me',
     corsOrigin: process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? 'https://tally-konnect.onrender.com' : '*'),
-    masterPassword: process.env.MASTER_PASSWORD || '', // Human login
     bridgeApiKey: process.env.BRIDGE_API_KEY || '',     // Tally Bridge Agent
+  },
+
+  // OAuth Providers
+  oauth: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    },
+    microsoft: {
+      clientId: process.env.MICROSOFT_CLIENT_ID || '',
+      clientSecret: process.env.MICROSOFT_CLIENT_SECRET || '',
+      tenantId: process.env.MICROSOFT_TENANT_ID || 'common', // 'common' for multi-tenant
+    },
+  },
+
+  // SMTP (for email OTP)
+  smtp: {
+    host: process.env.SMTP_HOST || '',
+    port: process.env.SMTP_PORT || '587',
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.SMTP_FROM || '',
+  },
+
+  // SMS (for mobile OTP) — requires Twilio or similar
+  sms: {
+    provider: process.env.SMS_PROVIDER || '', // 'twilio'
+    twilioSid: process.env.TWILIO_SID || '',
+    twilioToken: process.env.TWILIO_TOKEN || '',
+    twilioFrom: process.env.TWILIO_FROM || '',
   },
 
   // Rate limiting

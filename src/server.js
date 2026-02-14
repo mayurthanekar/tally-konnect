@@ -20,6 +20,7 @@ const SchedulerService = require('./services/scheduler.service');
 // Import DB operations
 const migration = require('./db/migrations/001_initial_schema');
 const migration002 = require('./db/migrations/002_users');
+const migration003 = require('./db/migrations/003_auth_upgrade');
 const { seed } = require('./db/seeds/run');
 
 const app = express();
@@ -130,6 +131,13 @@ async function start() {
       logger.info('Migration 002 (users) done');
     } catch (err) {
       logger.error({ err }, 'Migration 002 failed');
+    }
+
+    try {
+      await migration003.up();
+      logger.info('Migration 003 (auth upgrade) done');
+    } catch (err) {
+      logger.error({ err }, 'Migration 003 failed');
     }
 
     try {

@@ -24,12 +24,31 @@ const router = Router();
 router.get('/health', global.health);
 
 // =============================================
-// AUTHENTICATION (Public: login only)
+// AUTHENTICATION — Public routes
 // =============================================
-router.post('/auth/login', auth.login);
+// Auth provider availability
+router.get('/auth/config', auth.getAuthConfig);
+
+// Google OAuth
+router.get('/auth/google', auth.googleRedirect);
+router.get('/auth/google/callback', auth.googleCallback);
+
+// Microsoft OAuth
+router.get('/auth/microsoft', auth.microsoftRedirect);
+router.get('/auth/microsoft/callback', auth.microsoftCallback);
+
+// Email OTP
+router.post('/auth/otp/send-email', auth.sendEmailOtpHandler);
+
+// Mobile OTP
+router.post('/auth/otp/send-mobile', auth.sendMobileOtpHandler);
+
+// OTP verification (both email and mobile)
+router.post('/auth/otp/verify', auth.verifyOtp);
+
+// Protected auth routes
 router.get('/auth/me', protect, auth.me);
 router.get('/auth/users', protect, auth.listUsers);
-router.post('/auth/users', protect, auth.createUser);
 router.patch('/auth/users/:id', protect, auth.updateUser);
 router.delete('/auth/users/:id', protect, auth.deleteUser);
 

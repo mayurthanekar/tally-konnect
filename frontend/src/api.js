@@ -20,6 +20,14 @@ async function request(method, path, body = null) {
   const opts = { method, headers: getHeaders() };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(`${BASE}${path}`, opts);
+
+  // Auto-logout on 401 (expired JWT)
+  if (res.status === 401 && getToken()) {
+    api.clearToken();
+    window.location.reload();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     const msg = err.error?.message || `Request failed: ${res.status}`;
@@ -34,23 +42,35 @@ async function request(method, path, body = null) {
 function downloadBlob(method, path, body, filename) {
   const opts = { method, headers: getHeaders() };
   if (body) opts.body = JSON.stringify(body);
-  return fetch(`${BASE}${path}`, opts).then(r => r.blob()).then(blob => {
+  return fetch(`${BASE}${path}`, opts).then(r => {
+    if (!r.ok) throw new Error(`Download failed: ${r.status}`);
+    return r.blob();
+  }).then(blob => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
   });
 }
 
 const api = {
-  // Auth
-  login: (email, password) => request('POST', '/auth/login', { email, password }),
+  // Auth — SSO + OTP
+  getAuthConfig: () => request('GET', '/auth/config'),
+  sendEmailOtp: (email) => request('POST', '/auth/otp/send-email', { email }),
+  sendMobileOtp: (phone) => request('POST', '/auth/otp/send-mobile', { phone }),
+  verifyOtp: (identifier, otp, type = 'email') => request('POST', '/auth/otp/verify', { identifier, otp, type }),
   getMe: () => request('GET', '/auth/me'),
   getUsers: () => request('GET', '/auth/users'),
-  createUser: (data) => request('POST', '/auth/users', data),
+  updateUser: (id, data) => request('PATCH', `/auth/users/${id}`, data),
   deleteUser: (id) => request('DELETE', `/auth/users/${id}`),
+
+  // Google OAuth (server-side — full page redirect)
+  googleLogin: () => { window.location.href = `${BASE}/auth/google`; },
+  // Microsoft OAuth (server-side — full page redirect)
+  microsoftLogin: () => { window.location.href = `${BASE}/auth/microsoft`; },
 
   // Token management
   setToken: (token) => { localStorage.setItem('tally_konnect_token', token); },
