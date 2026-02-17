@@ -391,7 +391,7 @@ async function verifyOtp(req, res, next) {
             .first();
 
         if (!record) {
-            return res.status(401).json({
+            return res.status(400).json({
                 success: false,
                 error: { code: 'OTP_EXPIRED', message: 'OTP expired or not found. Please request a new one.' }
             });
@@ -410,7 +410,7 @@ async function verifyOtp(req, res, next) {
         if (record.code !== otp.trim()) {
             await db('otp_codes').where({ id: record.id }).increment('attempts', 1);
             const remaining = 5 - record.attempts - 1;
-            return res.status(401).json({
+            return res.status(400).json({
                 success: false,
                 error: { code: 'INVALID_OTP', message: `Invalid OTP. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.` }
             });
