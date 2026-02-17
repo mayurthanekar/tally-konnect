@@ -1,4 +1,6 @@
 @echo off
+cd /d "%~dp0"
+
 title Tally Konnect Bridge - Setup
 echo ============================================
 echo   Tally Konnect Bridge - Windows Installer
