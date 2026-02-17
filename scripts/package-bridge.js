@@ -17,7 +17,9 @@ const INCLUDE_FILES = [
     'index.html',
     'package.json',
     'Setup-TallyKonnectBridge.bat',
+    'RUN_BRIDGE.bat',
     'scripts/download-bin.js',
+    '.env.example',
 ];
 
 function packageBridge() {
@@ -66,7 +68,7 @@ REQUIREMENTS:
 
 SETUP:
   1. Extract this zip to any folder
-  2. Double-click "Setup-TallyKonnectBridge.bat"
+  2. Double-click "RUN_BRIDGE.bat"
   3. The setup script will:
      - Install required packages
      - Download the cloudflared tunnel binary
