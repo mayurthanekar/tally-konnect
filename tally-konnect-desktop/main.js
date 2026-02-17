@@ -1,11 +1,13 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const axios = require('axios');
 const { spawn } = require('child_process');
 const fs = require('fs');
 
 let mainWindow;
+let tray;
 let tunnelProcess;
+let isQuitting = false;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -19,9 +21,43 @@ function createWindow() {
         title: 'Tally Konnect Bridge',
         resizable: false,
         autoHideMenuBar: true,
+        icon: path.join(__dirname, 'icon.ico')
     });
 
     mainWindow.loadFile('index.html');
+
+    mainWindow.on('close', (event) => {
+        if (!isQuitting) {
+            event.preventDefault();
+            mainWindow.hide();
+        }
+        return false;
+    });
+}
+
+function createTray() {
+    const iconPath = path.join(__dirname, 'icon.ico');
+    const trayIcon = nativeImage.createFromPath(iconPath);
+
+    tray = new Tray(trayIcon.isEmpty() ? nativeImage.createEmpty() : trayIcon);
+
+    const contextMenu = Menu.buildFromTemplate([
+        { label: 'Show App', click: () => mainWindow.show() },
+        {
+            label: 'Quit', click: () => {
+                isQuitting = true;
+                if (tunnelProcess) tunnelProcess.kill();
+                app.quit();
+            }
+        }
+    ]);
+
+    tray.setToolTip('Tally Konnect Bridge');
+    tray.setContextMenu(contextMenu);
+
+    tray.on('double-click', () => {
+        mainWindow.show();
+    });
 }
 
 const gotTheLock = app.requestSingleInstanceLock();
@@ -33,20 +69,20 @@ if (!gotTheLock) {
         // Someone tried to run a second instance, we should focus our window.
         if (mainWindow) {
             if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.show();
             mainWindow.focus();
         }
     });
 
     app.whenReady().then(() => {
         createWindow();
+        createTray();
 
-        // Auto-start on login
+        // Auto-start on login (visible)
         app.setLoginItemSettings({
             openAtLogin: true,
             path: process.execPath,
-            args: [
-                '--process-start-args', `"--hidden"`
-            ]
+            args: []
         });
 
         app.on('activate', () => {
@@ -55,8 +91,13 @@ if (!gotTheLock) {
     });
 }
 
+// Don't quit when all windows are closed (we run in background)
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
+    // Do nothing, keep running in tray
+});
+
+app.on('before-quit', () => {
+    isQuitting = true;
 });
 
 // IPC Handlers
