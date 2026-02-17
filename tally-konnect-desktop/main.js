@@ -108,8 +108,8 @@ ipcMain.handle('start-tunnel', async (event, port) => {
                     console.log('Tunnel URL Found:', tunnelUrl);
 
                     // 3. Register with Cloud App
-                    // Using the production Render URL
-                    const cloudUrl = 'https://tally-konnect.onrender.com';
+                    // Using the production Render URL or environment variable
+                    const cloudUrl = process.env.CLOUD_API_URL || 'https://tally-konnect.onrender.com';
 
                     try {
                         const bridgeKey = process.env.BRIDGE_API_KEY;
