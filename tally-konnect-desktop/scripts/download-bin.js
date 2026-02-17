@@ -22,12 +22,9 @@ const ARCH_MAP = {
 };
 
 function download(url, dest) {
-    const options = {
-        headers: { 'User-Agent': 'TallyKonnectBridge-Installer' }
-    };
     return new Promise((resolve, reject) => {
         const file = fs.createWriteStream(dest);
-        https.get(url, options, (response) => {
+        https.get(url, (response) => {
             if (response.statusCode === 302 || response.statusCode === 301) {
                 file.close();
                 fs.unlinkSync(dest);
@@ -37,7 +34,7 @@ function download(url, dest) {
             if (response.statusCode !== 200) {
                 file.close();
                 fs.unlinkSync(dest);
-                reject(new Error(`Download failed for ${url} with status ${response.statusCode}`));
+                reject(new Error(`Download failed with status ${response.statusCode}`));
                 return;
             }
             response.pipe(file);
@@ -52,24 +49,15 @@ function download(url, dest) {
 }
 
 function downloadText(url) {
-    const options = {
-        headers: { 'User-Agent': 'TallyKonnectBridge-Installer' }
-    };
     return new Promise((resolve, reject) => {
-        https.get(url, options, (response) => {
+        https.get(url, (response) => {
             if (response.statusCode === 302 || response.statusCode === 301) {
                 downloadText(response.headers.location).then(resolve).catch(reject);
                 return;
             }
             let data = '';
             response.on('data', chunk => data += chunk);
-            response.on('end', () => {
-                if (response.statusCode !== 200) {
-                    reject(new Error(`Failed to download text from ${url}: Status ${response.statusCode}`));
-                    return;
-                }
-                resolve(data);
-            });
+            response.on('end', () => resolve(data));
         }).on('error', reject);
     });
 }
@@ -86,12 +74,19 @@ function sha256File(filePath) {
 
 async function main() {
     const platform = PLATFORM_MAP[process.platform];
-    const arch = ARCH_MAP[process.arch] || 'amd64';
+    let arch = ARCH_MAP[process.arch] || 'amd64';
+
+    // FIX: Windows on ARM64 fallback
+    if (platform === 'windows' && arch === 'arm64') {
+        console.log('Windows ARM64 detected. Using amd64 binary (emulation).');
+        arch = 'amd64';
+    }
 
     if (!platform) {
         console.error('Unsupported platform:', process.platform);
         process.exit(1);
     }
+
 
     const filename = `cloudflared-${platform}-${arch}${EXT}`;
     const downloadUrl = `https://github.com/cloudflare/cloudflared/releases/latest/download/${filename}`;
@@ -111,16 +106,22 @@ async function main() {
             const checksumData = await downloadText(checksumUrl);
             // Format is: "<hash>  <filename>" or just "<hash>"
             const expectedHash = checksumData.trim().split(/\s+/)[0].toLowerCase();
-            const actualHash = await sha256File(destPath);
 
-            if (actualHash !== expectedHash) {
-                console.error(`INTEGRITY CHECK FAILED!`);
-                console.error(`  Expected: ${expectedHash}`);
-                console.error(`  Actual:   ${actualHash}`);
-                fs.unlinkSync(destPath);
-                process.exit(1);
+            // Fix: Check if we got HTML (e.g. 404 page) instead of a hash
+            if (expectedHash.startsWith('<')) {
+                console.warn('WARNING: Checksum file returned HTML (likely 404). Skipping integrity check.');
+            } else {
+                const actualHash = await sha256File(destPath);
+
+                if (actualHash !== expectedHash) {
+                    console.error(`INTEGRITY CHECK FAILED!`);
+                    console.error(`  Expected: ${expectedHash}`);
+                    console.error(`  Actual:   ${actualHash}`);
+                    fs.unlinkSync(destPath);
+                    process.exit(1);
+                }
+                console.log(`SHA256 verified: ${actualHash.substring(0, 16)}...`);
             }
-            console.log(`SHA256 verified: ${actualHash.substring(0, 16)}...`);
         } catch (checksumErr) {
             console.warn('WARNING: Could not download checksum file. Skipping integrity check.');
             console.warn(`  Reason: ${checksumErr.message}`);
@@ -134,16 +135,9 @@ async function main() {
 
         console.log('Done!');
     } catch (err) {
-        console.error('\n[ERROR] Download failed:', err.message);
-        console.error('This often happens due to unstable internet or firewall restrictions.');
-
-        if (process.platform === 'darwin') {
-            console.warn('Ignoring download failure on macOS (Development QA environment).');
-            process.exit(0);
-        }
+        console.error('Download failed:', err.message);
         process.exit(1);
     }
-
 }
 
 main();

@@ -1,13 +1,12 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require('electron');
+require('dotenv').config();
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const axios = require('axios');
 const { spawn } = require('child_process');
 const fs = require('fs');
 
 let mainWindow;
-let tray;
 let tunnelProcess;
-let isQuitting = false;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -21,43 +20,9 @@ function createWindow() {
         title: 'Tally Konnect Bridge',
         resizable: false,
         autoHideMenuBar: true,
-        icon: path.join(__dirname, 'icon.ico')
     });
 
     mainWindow.loadFile('index.html');
-
-    mainWindow.on('close', (event) => {
-        if (!isQuitting) {
-            event.preventDefault();
-            mainWindow.hide();
-        }
-        return false;
-    });
-}
-
-function createTray() {
-    const iconPath = path.join(__dirname, 'icon.ico');
-    const trayIcon = nativeImage.createFromPath(iconPath);
-
-    tray = new Tray(trayIcon.isEmpty() ? nativeImage.createEmpty() : trayIcon);
-
-    const contextMenu = Menu.buildFromTemplate([
-        { label: 'Show App', click: () => mainWindow.show() },
-        {
-            label: 'Quit', click: () => {
-                isQuitting = true;
-                if (tunnelProcess) tunnelProcess.kill();
-                app.quit();
-            }
-        }
-    ]);
-
-    tray.setToolTip('Tally Konnect Bridge');
-    tray.setContextMenu(contextMenu);
-
-    tray.on('double-click', () => {
-        mainWindow.show();
-    });
 }
 
 const gotTheLock = app.requestSingleInstanceLock();
@@ -69,20 +34,20 @@ if (!gotTheLock) {
         // Someone tried to run a second instance, we should focus our window.
         if (mainWindow) {
             if (mainWindow.isMinimized()) mainWindow.restore();
-            mainWindow.show();
             mainWindow.focus();
         }
     });
 
     app.whenReady().then(() => {
         createWindow();
-        createTray();
 
-        // Auto-start on login (visible)
+        // Auto-start on login
         app.setLoginItemSettings({
             openAtLogin: true,
             path: process.execPath,
-            args: []
+            args: [
+                '--process-start-args', `"--hidden"`
+            ]
         });
 
         app.on('activate', () => {
@@ -91,13 +56,8 @@ if (!gotTheLock) {
     });
 }
 
-// Don't quit when all windows are closed (we run in background)
 app.on('window-all-closed', () => {
-    // Do nothing, keep running in tray
-});
-
-app.on('before-quit', () => {
-    isQuitting = true;
+    if (process.platform !== 'darwin') app.quit();
 });
 
 // IPC Handlers
@@ -122,7 +82,8 @@ ipcMain.handle('start-tunnel', async (event, port) => {
     return new Promise(async (resolve) => {
         try {
             const binName = process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared';
-            const binPath = path.join(__dirname, 'bin', binName);
+            const bindir = app.isPackaged ? path.join(process.resourcesPath, 'bin') : path.join(__dirname, 'bin');
+            const binPath = path.join(bindir, binName);
 
             // 1. Check if binary exists
             if (!fs.existsSync(binPath)) {
@@ -151,7 +112,12 @@ ipcMain.handle('start-tunnel', async (event, port) => {
                     const cloudUrl = 'https://tally-konnect.onrender.com';
 
                     try {
-                        const bridgeKey = process.env.BRIDGE_API_KEY || 'dev-bridge-key'; // Should be same as server
+                        const bridgeKey = process.env.BRIDGE_API_KEY;
+                        if (!bridgeKey) {
+                            console.error('BRIDGE_API_KEY is not set!');
+                            resolve({ success: false, error: 'Bridge API Key missing in environment.' });
+                            return;
+                        }
                         await axios.put(`${cloudUrl}/api/tally-connection`, {
                             host: tunnelUrl,
                             port: '80',

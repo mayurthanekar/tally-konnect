@@ -1,167 +1,82 @@
 <!DOCTYPE html>
 <html>
-
 <head>
   <title>Tally Konnect Bridge</title>
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline'">
   <style>
-    :root {
-      --primary-color: #2E31BE;
-      --primary-hover: #1A1D9C;
-      --text-main: #1C1C1C;
-      --text-secondary: #666666;
-      --bg-color: #F8F8F8;
-      --card-bg: #FFFFFF;
-      --border-color: #E0E0E0;
-      --success: #0A8647;
-      --error: #D93025;
-      --radius: 8px;
-    }
-
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background-color: var(--bg-color);
-      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #1F1F25;
+      color: #FFFFFF;
       margin: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100vh;
-      user-select: none;
     }
-
     h1 {
       font-size: 24px;
-      margin-bottom: 32px;
-      font-weight: 700;
-      color: var(--text-main);
-      letter-spacing: -0.02em;
+      margin-bottom: 20px;
     }
-
-    .card {
-      background-color: var(--card-bg);
-      padding: 32px;
-      border-radius: 12px;
-      width: 320px;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-      border: 1px solid var(--border-color);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .status-badge {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      background-color: #F5F5F5;
-      border-radius: 20px;
-      margin-bottom: 24px;
-      font-weight: 600;
-      font-size: 14px;
-      color: var(--text-secondary);
-    }
-
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background-color: #999;
-    }
-
-    .status-dot.connected {
-      background-color: var(--success);
-      box-shadow: 0 0 0 3px rgba(10, 134, 71, 0.1);
-    }
-
-    .status-dot.error {
-      background-color: var(--error);
-    }
-
-    .status-dot.active {
-      background-color: #F9A825;
-    }
-
-    .url-display {
-      width: 100%;
-      padding: 12px;
-      background-color: #FAFAFA;
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      color: var(--text-secondary);
+    .status-card {
+      background-color: #2D2D35;
+      padding: 20px;
+      border-radius: 8px;
       text-align: center;
-      margin-bottom: 24px;
-      word-break: break-all;
-      box-sizing: border-box;
-      display: none;
+      width: 300px;
     }
-
-    .btn {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: var(--radius);
-      font-size: 15px;
+    .status-indicator {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background-color: #888;
+      display: inline-block;
+      margin-right: 8px;
+    }
+    .status-text {
+      font-size: 18px;
       font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
     }
-
-    .btn-primary {
-      background-color: var(--primary-color);
+    .url-display {
+      margin-top: 15px;
+      padding: 10px;
+      background-color: #1F1F25;
+      border-radius: 4px;
+      font-family: monospace;
+      color: #ABABBA;
+      word-break: break-all;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background-color: #2E31BE;
       color: white;
-      box-shadow: 0 2px 8px rgba(46, 49, 190, 0.2);
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.2s;
     }
-
-    .btn-primary:hover {
-      background-color: var(--primary-hover);
-      transform: translateY(-1px);
-    }
-
-    .btn-secondary {
-      background-color: transparent;
-      color: var(--text-secondary);
-      margin-top: 12px;
-      font-weight: 500;
-    }
-
-    .btn-secondary:hover {
-      color: var(--text-main);
-      background-color: #F5F5F5;
-    }
-
-    .footer {
-      margin-top: 40px;
-      font-size: 12px;
-      color: #999;
+    button:hover {
+      background-color: #5A5CE6;
     }
   </style>
 </head>
-
 <body>
   <h1>Tally Konnect Bridge</h1>
-
-  <div class="card">
-    <div class="status-badge" id="status-badge">
-      <span class="status-dot" id="status-dot"></span>
-      <span id="status-text">Disconnected</span>
+  
+  <div class="status-card">
+    <div>
+      <span id="status-dot" class="status-indicator"></span>
+      <span id="status-text" class="status-text">Disconnected</span>
     </div>
-
-    <div id="url-container" class="url-display"></div>
-
-    <button id="connect-btn" class="btn btn-primary">Start Connection</button>
-    <button id="minimize-btn" class="btn btn-secondary" onclick="window.close()">Minimize to Tray</button>
+    <div id="url-container" class="url-display" style="display: none;">
+      Connect to begin
+    </div>
   </div>
 
-  <div class="footer">
-    v1.0.0 &bull; Port 9000
-  </div>
+  <button id="connect-btn">Connect to Tally</button>
 
   <script src="renderer.js"></script>
 </body>
-
 </html>
