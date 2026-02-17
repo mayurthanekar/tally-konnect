@@ -47,13 +47,19 @@ const config = {
     },
   },
 
-  // SMTP (for email OTP)
+  // SMTP (for email OTP — fallback)
   smtp: {
     host: process.env.SMTP_HOST || '',
     port: process.env.SMTP_PORT || '587',
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
     from: process.env.SMTP_FROM || '',
+  },
+
+  // Resend (primary email provider)
+  resend: {
+    apiKey: process.env.RESEND_API_KEY || '',
+    from: process.env.RESEND_FROM || process.env.SMTP_FROM || 'Tally Konnect <onboarding@resend.dev>',
   },
 
   // SMS (for mobile OTP) — requires Twilio or similar

@@ -6,7 +6,7 @@ const axios = require('axios');
 const config = require('../config');
 const { db } = require('../db');
 const logger = require('../utils/logger');
-const { sendOtpEmail } = require('../utils/mailer');
+const { sendOtpEmail, verifySmtpConnection } = require('../utils/mailer');
 
 const JWT_SECRET = config.security.jwtSecret;
 const JWT_EXPIRY = '7d';
@@ -67,6 +67,7 @@ async function findOrCreateUser({ email, name, avatar_url, auth_provider, phone 
 // GET /api/auth/config  (Public — tells frontend which providers are available)
 // ============================================================
 function getAuthConfig(req, res) {
+    const { host, user } = config.smtp;
     res.json({
         success: true,
         data: {
@@ -74,6 +75,7 @@ function getAuthConfig(req, res) {
             microsoft: !!config.oauth.microsoft.clientId,
             emailOtp: true,  // Always available (falls back to logging OTP)
             mobileOtp: !!config.sms.twilioSid,
+            smtpConfigured: !!(host && user),
         }
     });
 }
@@ -267,14 +269,54 @@ async function sendEmailOtpHandler(req, res, next) {
         });
 
         // Send email (falls back to console logging if SMTP not configured)
-        await sendOtpEmail(normalizedEmail, otp);
+        const deliveryResult = await sendOtpEmail(normalizedEmail, otp);
+
+        const message = deliveryResult.sent
+            ? `OTP sent to ${normalizedEmail}`
+            : `OTP generated for ${normalizedEmail}. Email delivery is not configured — check server logs for the code.`;
 
         res.json({
             success: true,
-            data: { message: `OTP sent to ${normalizedEmail}`, expiresInMinutes: OTP_EXPIRY_MINS }
+            data: {
+                message,
+                expiresInMinutes: OTP_EXPIRY_MINS,
+                delivered: deliveryResult.sent,
+            }
         });
     } catch (err) {
         logger.error({ err }, 'Send email OTP failed');
+        next(err);
+    }
+}
+
+// POST /api/auth/otp/test-email  { email } (Admin only)
+async function testEmailOtpHandler(req, res, next) {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ success: false, error: { message: 'Admin access required' } });
+        }
+
+        const { email } = req.body;
+        const testOtp = '123456';
+
+        logger.info({ email, actor: req.user.email }, 'Running SMTP diagnostic test');
+
+        const connection = await verifySmtpConnection();
+        const delivery = await sendOtpEmail(email, testOtp);
+
+        res.json({
+            success: true,
+            data: {
+                diagnostic: {
+                    smtpHost: config.smtp.host,
+                    smtpUser: config.smtp.user ? `${config.smtp.user.substring(0, 3)}***` : 'none',
+                    connection,
+                    delivery
+                }
+            }
+        });
+    } catch (err) {
+        logger.error({ err }, 'SMTP diagnostic test failed');
         next(err);
     }
 }
@@ -510,6 +552,7 @@ module.exports = {
     microsoftRedirect,
     microsoftCallback,
     sendEmailOtpHandler,
+    testEmailOtpHandler,
     sendMobileOtpHandler,
     verifyOtp,
     me,

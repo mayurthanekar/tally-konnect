@@ -26,6 +26,34 @@ services:
         value: info
       - key: LOG_FORMAT
         value: json
+      # OAuth (set these in Render dashboard)
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: MICROSOFT_CLIENT_ID
+        sync: false
+      - key: MICROSOFT_CLIENT_SECRET
+        sync: false
+      # Resend (Primary email provider for OTP)
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        sync: false
+      # SMTP for Email OTP (fallback)
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      # App URL (for OAuth callbacks)
+      - key: APP_URL
+        value: "https://tally-konnect.onrender.com"
 
 databases:
   - name: tally-konnect-db

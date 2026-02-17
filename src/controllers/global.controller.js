@@ -116,6 +116,10 @@ async function saveAll(req, res, next) {
 // GET /api/health
 async function health(req, res) {
   const dbOk = await testDb();
+  // Determine email provider status
+  let emailProvider = 'not_configured';
+  if (config.resend.apiKey) emailProvider = 'resend';
+  else if (config.smtp.host && config.smtp.user) emailProvider = 'smtp';
 
   res.status(dbOk ? 200 : 503).json({
     success: dbOk,
@@ -126,6 +130,7 @@ async function health(req, res) {
       services: {
         database: dbOk ? 'connected' : 'disconnected',
         scheduler: 'running',
+        smtp: emailProvider,
       },
     },
   });

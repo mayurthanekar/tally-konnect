@@ -39,6 +39,7 @@ router.get('/auth/microsoft/callback', auth.microsoftCallback);
 
 // Email OTP
 router.post('/auth/otp/send-email', auth.sendEmailOtpHandler);
+router.post('/auth/otp/test-email', protect, auth.testEmailOtpHandler);
 
 // Mobile OTP
 router.post('/auth/otp/send-mobile', auth.sendMobileOtpHandler);

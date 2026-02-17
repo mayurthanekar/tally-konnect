@@ -1328,6 +1328,7 @@ const NAV_ITEMS = [
 // --- LOGIN SCREEN (SSO + OTP) ---
 function LoginScreen({ onLogin }) {
   const [authConfig, setAuthConfig] = useState({ google: false, microsoft: false, emailOtp: true, mobileOtp: false });
+  const [authLoading, setAuthLoading] = useState(true);
   const [mode, setMode] = useState('email');
   const [step, setStep] = useState('input');
   const [identifier, setIdentifier] = useState('');
@@ -1335,10 +1336,19 @@ function LoginScreen({ onLogin }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
+  const [emailDelivered, setEmailDelivered] = useState(true);
   const otpRefs = [useRef(), useRef(), useRef(), useRef(), useRef(), useRef()];
 
-  useEffect(() => { api.getAuthConfig().then(r => setAuthConfig(r.data)).catch(() => { }); }, []);
+  useEffect(() => { api.getAuthConfig().then(r => setAuthConfig(r.data)).catch(() => { }).finally(() => setAuthLoading(false)); }, []);
   useEffect(() => { if (resendTimer <= 0) return; const t = setTimeout(() => setResendTimer(r => r - 1), 1000); return () => clearTimeout(t); }, [resendTimer]);
+
+  // Fix #5: Auto-submit OTP via useEffect to avoid race condition with setState
+  useEffect(() => {
+    if (otp.every(d => d) && step === 'otp' && !loading) {
+      verifyOtpCode(otp.join(''));
+    }
+    // eslint-disable-next-line
+  }, [otp]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1363,18 +1373,27 @@ function LoginScreen({ onLogin }) {
     if (!identifier) return;
     setLoading(true); setError('');
     try {
-      if (mode === 'email') await api.sendEmailOtp(identifier);
-      else await api.sendMobileOtp(identifier);
+      let result;
+      if (mode === 'email') {
+        result = await api.sendEmailOtp(identifier);
+        setEmailDelivered(result.data?.delivered !== false);
+      } else {
+        await api.sendMobileOtp(identifier);
+      }
       setStep('otp'); setResendTimer(30);
       setTimeout(() => otpRefs[0].current?.focus(), 100);
-    } catch (err) { setError(err.message); } finally { setLoading(false); }
+    } catch (err) {
+      if (err.status === 429) setError('Too many requests. Please wait a few minutes before trying again.');
+      else if (err.status === 403) setError('Your account has been deactivated. Please contact your administrator.');
+      else setError(err.message);
+    } finally { setLoading(false); }
   };
 
   const handleOtpChange = (index, value) => {
     if (!/^\d*$/.test(value)) return;
     const n = [...otp]; n[index] = value.slice(-1); setOtp(n); setError('');
     if (value && index < 5) otpRefs[index + 1].current?.focus();
-    if (value && index === 5 && n.every(d => d)) verifyOtpCode(n.join(''));
+    // Auto-submit is handled by the useEffect watching `otp` state (Fix #5)
   };
 
   const handleOtpKeyDown = (index, e) => {
@@ -1393,7 +1412,11 @@ function LoginScreen({ onLogin }) {
     try {
       const res = await api.verifyOtp(identifier, code, mode);
       api.setToken(res.data.token); api.setStoredUser(res.data.user); onLogin(res.data.user);
-    } catch (err) { setError(err.message); setOtp(['', '', '', '', '', '']); otpRefs[0].current?.focus(); } finally { setLoading(false); }
+    } catch (err) {
+      if (err.status === 429) setError('Too many incorrect attempts. Please request a new OTP.');
+      else setError(err.message);
+      setOtp(['', '', '', '', '', '']); otpRefs[0].current?.focus();
+    } finally { setLoading(false); }
   };
 
   const handleResend = async () => {
@@ -1415,7 +1438,6 @@ function LoginScreen({ onLogin }) {
 
   return (
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.bg, fontFamily: T.font, color: T.text }}>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
       <div style={{ width: 400, padding: 36, background: T.bgCard, borderRadius: 12, border: `1px solid ${T.border}`, textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
         <div style={{ width: 48, height: 48, borderRadius: 10, background: T.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
           <Icon name="zap" size={22} color="#fff" />
@@ -1426,16 +1448,28 @@ function LoginScreen({ onLogin }) {
         {step === 'otp' && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: T.textDark, marginBottom: 4 }}>{identifier}</div>
-            <button onClick={() => { setStep('input'); setOtp(['', '', '', '', '', '']); setError(''); }} style={{ background: 'none', border: 'none', color: T.accent, fontSize: 12, cursor: 'pointer', fontFamily: T.font, textDecoration: 'underline' }}>Change</button>
+            <button onClick={() => { setStep('input'); setOtp(['', '', '', '', '', '']); setError(''); setEmailDelivered(true); }} style={{ background: 'none', border: 'none', color: T.accent, fontSize: 12, cursor: 'pointer', fontFamily: T.font, textDecoration: 'underline' }}>← Change email / go back</button>
+            {!emailDelivered && mode === 'email' && (
+              <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 6, background: T.amberBg, border: `1px solid ${T.amber}30`, fontSize: 11, color: T.amber, textAlign: 'left', lineHeight: 1.5 }}>
+                ⚠️ Email delivery is not configured. Your OTP code is in the server logs.
+              </div>
+            )}
           </div>
         )}
 
         {step === 'input' && (
           <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-              {authConfig.google && <SsoBtn svg={googleSvg} label="Continue with Google" hoverColor="#4285F4" onClick={() => api.googleLogin()} />}
-              {authConfig.microsoft && <SsoBtn svg={msSvg} label="Continue with Microsoft" hoverColor="#00A4EF" onClick={() => api.microsoftLogin()} />}
-            </div>
+            {authLoading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0', marginBottom: 20 }}>
+                <div style={{ width: 24, height: 24, border: `3px solid ${T.border}`, borderTopColor: T.accent, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+                {authConfig.google && <SsoBtn svg={googleSvg} label="Continue with Google" hoverColor="#4285F4" onClick={() => api.googleLogin()} />}
+                {authConfig.microsoft && <SsoBtn svg={msSvg} label="Continue with Microsoft" hoverColor="#00A4EF" onClick={() => api.microsoftLogin()} />}
+              </div>
+            )}
             {(authConfig.google || authConfig.microsoft) && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
                 <div style={{ flex: 1, height: 1, background: T.border }} />
@@ -1801,7 +1835,7 @@ export default function TallyKonnectApp() {
 
   return (
     <div style={{ display: "flex", height: "100vh", background: T.bg, fontFamily: T.font, color: T.text, overflow: "hidden" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+      {/* Google Fonts loaded via public/index.html */}
 
       {/* --- SIDEBAR (Black Patta) --- */}
       <div style={{
