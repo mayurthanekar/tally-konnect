@@ -24,6 +24,7 @@ function protect(req, res, next) {
         req.user = decoded; // { id, email, role, name }
         next();
     } catch (err) {
+        console.error('[AuthMiddleware] Token verification failed:', err.message);
         return res.status(401).json({
             success: false,
             error: { code: 'TOKEN_EXPIRED', message: 'Session expired. Please log in again.' }

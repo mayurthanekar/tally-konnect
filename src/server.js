@@ -13,6 +13,8 @@ const fs = require('fs');
 const config = require('./config');
 const logger = require('./utils/logger');
 const routes = require('./routes');
+
+console.log('[Startup] JWT Secret length:', config.security.jwtSecret ? config.security.jwtSecret.length : 0);
 const { errorHandler, generalLimiter } = require('./middleware');
 const { testConnection: testDb } = require('./db');
 const SchedulerService = require('./services/scheduler.service');
