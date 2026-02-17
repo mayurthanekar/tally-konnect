@@ -134,7 +134,9 @@ async function main() {
 
         console.log('Done!');
     } catch (err) {
-        console.error('Download failed:', err.message);
+        console.error('\n[ERROR] Download failed:', err.message);
+        console.error('This often happens due to unstable internet or firewall restrictions.');
+
         if (process.platform === 'darwin') {
             console.warn('Ignoring download failure on macOS (Development QA environment).');
             process.exit(0);

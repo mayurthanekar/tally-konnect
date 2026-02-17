@@ -34,6 +34,25 @@ The Tally Konnect Bridge is a lightweight desktop application that securely conn
 The app UI follows the **Novus Design Standards** (Fynd's Design System).
 *Note: Due to package registry restrictions, the UI is implemented using custom CSS to match Novus aesthetics rather than importing the private `novus-web` library.*
 
+## Digital Signature (Known Publisher)
+
+To run the app as a **Known Publisher** on Windows, you must sign the binaries.
+
+### 1. Electron App (.exe)
+The `package.json` is configured to use environment variables for signing. Before running `npm run dist`, set these:
+
+- `WIN_CSC_LINK`: Path to your `.pfx` certificate file.
+- `WIN_CSC_KEY_PASSWORD`: Password for the `.pfx` file.
+
+### 2. Setup Batch File (.bat)
+Batch files cannot be signed natively as "Known Publisher" easily. We recommend wrapping it into an `.exe`:
+
+1.  Use a tool like **Bat-To-Exe-Converter** or **iexpress** (built-in Windows tool).
+2.  Once you have `Setup-TallyBridge.exe`, sign it using `signtool` (included in Windows SDK):
+    ```bash
+    signtool sign /f your-cert.pfx /p your-password /tr http://timestamp.digicert.com /td sha256 /fd sha256 Setup-TallyBridge.exe
+    ```
+
 ## Development
 
 ```bash
