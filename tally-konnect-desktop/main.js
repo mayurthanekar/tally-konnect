@@ -6,7 +6,8 @@ const WebSocket = require('ws');
 
 let mainWindow;
 let bridgeWs = null;       // Active WebSocket to Render relay
-let bridgePort = 9000;     // Local Tally port (set when relay starts)
+let bridgeHost = 'http://localhost'; // Local Tally host
+let bridgePort = 9000;     // Local Tally port
 let reconnectTimer = null;
 let reconnectDelay = 1000; // Start at 1s, doubles up to 30s
 let intentionalClose = false;
@@ -61,24 +62,31 @@ app.on('window-all-closed', () => {
 
 // ── IPC: Check Tally ──────────────────────────────────────────────────────────
 
-ipcMain.handle('check-tally', async (event, startPort = 9000) => {
-    for (let port = startPort; port <= startPort + 5; port++) {
+ipcMain.handle('check-tally', async (event, startPort = 9000, host = 'http://localhost') => {
+    // 1. Try the user-provided port first on the provided host
+    const portsToTry = [startPort, 9000, 9001, 8000, 9999];
+    const uniquePorts = [...new Set(portsToTry.filter(p => !isNaN(p)))];
+
+    for (const port of uniquePorts) {
         try {
-            await axios.get(`http://localhost:${port}`, { timeout: 500 });
-            return { success: true, port, status: 200 };
+            console.log(`[Bridge] Probing Tally at ${host}:${port}...`);
+            await axios.get(`${host}:${port}`, { timeout: 1000 });
+            return { success: true, port, host };
         } catch (error) {
             if (error.response) {
-                return { success: true, port, status: error.response.status };
+                // Tally is there but maybe returned 400/404, still count as found
+                return { success: true, port, host };
             }
         }
     }
-    return { success: false, error: 'Tally Prime not found on ports 9000-9005' };
+    return { success: false, error: `Tally not found at ${host} (tried ports: ${uniquePorts.join(', ')})` };
 });
 
 // ── IPC: Start Relay ──────────────────────────────────────────────────────────
 
-ipcMain.handle('start-relay', async (event, port = 9000) => {
+ipcMain.handle('start-relay', async (event, port = 9000, host = 'http://localhost') => {
     bridgePort = port;
+    bridgeHost = host;
     intentionalClose = false;
     reconnectDelay = 1000;
 
@@ -161,7 +169,8 @@ function connectToRelay(initialResolve = null) {
         if (msg.type === 'request' && msg.id && msg.xml) {
             // Forward XML to local Tally, return response
             try {
-                const resp = await axios.post(`http://localhost:${bridgePort}`, msg.xml, {
+                const targetUrl = `${bridgeHost}:${bridgePort}`;
+                const resp = await axios.post(targetUrl, msg.xml, {
                     headers: { 'Content-Type': 'text/xml; charset=utf-8' },
                     timeout: 15000,
                     responseType: 'text',

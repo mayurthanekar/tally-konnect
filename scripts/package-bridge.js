@@ -72,8 +72,14 @@ SETUP:
   3. The setup script will:
      - Install required packages
      - Launch the Bridge application
-  4. In the Bridge app, click "Connect to Cloud"
+  4. In the Bridge app, verify your **Tally Host/Port** and click "Connect to Cloud".
   5. Your Tally is now connected to the cloud via persistent WebSocket!
+
+CONFIGURATION:
+  The Bridge app window allows you to change:
+  - **Tally Host / URL**: Default is http://localhost
+  - **Tally Port**: Default is 9000 (standard Tally Prime port)
+  The app will also try to auto-detect Tally on common ports if connection fails.
 
 ENVIRONMENT VARIABLES (optional):
   CLOUD_URL        - Cloud dashboard URL (default: https://tally-konnect.onrender.com)

@@ -2,6 +2,8 @@ const statusDot = document.getElementById('status-dot');
 const statusText = document.getElementById('status-text');
 const urlContainer = document.getElementById('url-container');
 const connectBtn = document.getElementById('connect-btn');
+const tallyHostInput = document.getElementById('tally-host');
+const tallyPortInput = document.getElementById('tally-port');
 
 let isConnected = false;
 
@@ -34,20 +36,27 @@ connectBtn.addEventListener('click', async () => {
         if (result.success) setUi(false);
     } else {
         // Connect
+        const host = tallyHostInput.value.trim() || 'http://localhost';
+        const port = parseInt(tallyPortInput.value) || 9000;
+
         setAmber('Checking Tally...');
         connectBtn.disabled = true;
+        tallyHostInput.disabled = true;
+        tallyPortInput.disabled = true;
 
         // 1. Confirm Tally is running locally
-        const tallyCheck = await window.electronAPI.checkTally(9000);
+        const tallyCheck = await window.electronAPI.checkTally(port, host);
         if (!tallyCheck.success) {
-            setError('Tally Prime Not Found (port 9000)');
+            setError(`Tally Not Found (${host}:${port})`);
             connectBtn.disabled = false;
+            tallyHostInput.disabled = false;
+            tallyPortInput.disabled = false;
             return;
         }
 
         // 2. Start relay connection
         setAmber('Connecting to Cloud...');
-        const relay = await window.electronAPI.startRelay(tallyCheck.port);
+        const relay = await window.electronAPI.startRelay(tallyCheck.port, host);
 
         connectBtn.disabled = false;
 
@@ -55,6 +64,8 @@ connectBtn.addEventListener('click', async () => {
             setUi(true, 'Relay Active — Cloud Connected');
         } else {
             setError(relay.error || 'Relay Connection Failed');
+            tallyHostInput.disabled = false;
+            tallyPortInput.disabled = false;
         }
     }
 });
@@ -70,6 +81,8 @@ function setUi(connected, label = '') {
         urlContainer.style.display = 'block';
         connectBtn.innerText = 'Disconnect';
         connectBtn.style.backgroundColor = '#CD3F3E';
+        tallyHostInput.disabled = true;
+        tallyPortInput.disabled = true;
     } else {
         isConnected = false;
         statusDot.style.backgroundColor = '#888';
@@ -77,6 +90,8 @@ function setUi(connected, label = '') {
         urlContainer.style.display = 'none';
         connectBtn.innerText = 'Connect to Cloud';
         connectBtn.style.backgroundColor = '#2E31BE';
+        tallyHostInput.disabled = false;
+        tallyPortInput.disabled = false;
     }
 }
 

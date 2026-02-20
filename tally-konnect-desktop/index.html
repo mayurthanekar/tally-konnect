@@ -60,6 +60,30 @@
     button:hover {
       background-color: #5A5CE6;
     }
+    .settings-group {
+      margin-top: 15px;
+      width: 300px;
+      text-align: left;
+    }
+    .settings-group label {
+      font-size: 11px;
+      color: #ABABBA;
+      display: block;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .settings-group input {
+      width: 100%;
+      padding: 8px;
+      background: #1F1F25;
+      border: 1px solid #3D3D45;
+      color: #fff;
+      border-radius: 4px;
+      font-size: 13px;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
@@ -70,6 +94,15 @@
       <span id="status-dot" class="status-indicator"></span>
       <span id="status-text" class="status-text">Disconnected</span>
     </div>
+    
+    <div class="settings-group">
+      <label>Tally Host / URL</label>
+      <input type="text" id="tally-host" value="http://localhost" placeholder="http://localhost">
+      
+      <label>Tally Port</label>
+      <input type="number" id="tally-port" value="9000" placeholder="9000">
+    </div>
+
     <div id="url-container" class="url-display" style="display: none;">
       Connect to begin
     </div>
