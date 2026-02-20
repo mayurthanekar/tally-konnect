@@ -1701,11 +1701,6 @@ function DesktopBridgePage({ tallyConn }) {
         <div style={{ fontSize: 11, color: T.textMuted, marginTop: 10 }}>
           Requires Windows 10+ · Node.js 18+ · Tally Prime must be installed
         </div>
-        <div style={{ marginTop: 8 }}>
-          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: T.accent, textDecoration: 'none' }}>
-            Or check GitHub Releases for pre-built .exe →
-          </a>
-        </div>
       </Card>
 
       {/* How it Works */}
