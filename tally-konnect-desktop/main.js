@@ -2,16 +2,22 @@ require('dotenv').config();
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const axios = require('axios');
-const { spawn } = require('child_process');
-const fs = require('fs');
+const WebSocket = require('ws');
 
 let mainWindow;
-let tunnelProcess;
+let bridgeWs = null;       // Active WebSocket to Render relay
+let bridgePort = 9000;     // Local Tally port (set when relay starts)
+let reconnectTimer = null;
+let reconnectDelay = 1000; // Start at 1s, doubles up to 30s
+let intentionalClose = false;
+let pingTimer = null;
+
+// ── Window ────────────────────────────────────────────────────────────────────
 
 function createWindow() {
     mainWindow = new BrowserWindow({
-        width: 400,
-        height: 600,
+        width: 420,
+        height: 620,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,
@@ -21,7 +27,6 @@ function createWindow() {
         resizable: false,
         autoHideMenuBar: true,
     });
-
     mainWindow.loadFile('index.html');
 }
 
@@ -30,8 +35,7 @@ const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
     app.quit();
 } else {
-    app.on('second-instance', (event, commandLine, workingDirectory) => {
-        // Someone tried to run a second instance, we should focus our window.
+    app.on('second-instance', () => {
         if (mainWindow) {
             if (mainWindow.isMinimized()) mainWindow.restore();
             mainWindow.focus();
@@ -40,16 +44,11 @@ if (!gotTheLock) {
 
     app.whenReady().then(() => {
         createWindow();
-
-        // Auto-start on login
         app.setLoginItemSettings({
             openAtLogin: true,
             path: process.execPath,
-            args: [
-                '--process-start-args', `"--hidden"`
-            ]
+            args: ['--process-start-args', '"--hidden"'],
         });
-
         app.on('activate', () => {
             if (BrowserWindow.getAllWindows().length === 0) createWindow();
         });
@@ -60,17 +59,15 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
 
-// IPC Handlers
+// ── IPC: Check Tally ──────────────────────────────────────────────────────────
+
 ipcMain.handle('check-tally', async (event, startPort = 9000) => {
-    // Scan ports 9000-9005
     for (let port = startPort; port <= startPort + 5; port++) {
         try {
-            // Tally returns a specific response on root or has an open port
             await axios.get(`http://localhost:${port}`, { timeout: 500 });
             return { success: true, port, status: 200 };
         } catch (error) {
             if (error.response) {
-                // If we get a response (even 404/500), something is listening there
                 return { success: true, port, status: error.response.status };
             }
         }
@@ -78,89 +75,155 @@ ipcMain.handle('check-tally', async (event, startPort = 9000) => {
     return { success: false, error: 'Tally Prime not found on ports 9000-9005' };
 });
 
-ipcMain.handle('start-tunnel', async (event, port) => {
-    return new Promise(async (resolve) => {
-        try {
-            const binName = process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared';
-            const bindir = app.isPackaged ? path.join(process.resourcesPath, 'bin') : path.join(__dirname, 'bin');
-            const binPath = path.join(bindir, binName);
+// ── IPC: Start Relay ──────────────────────────────────────────────────────────
 
-            // 1. Check if binary exists
-            if (!fs.existsSync(binPath)) {
-                return resolve({ success: false, error: `Cloudflared binary not found at ${binPath}. Please run the install script.` });
-            }
+ipcMain.handle('start-relay', async (event, port = 9000) => {
+    bridgePort = port;
+    intentionalClose = false;
+    reconnectDelay = 1000;
 
-            // 2. Start Cloudflared (Quick Tunnel)
-            console.log(`Starting tunnel: ${binPath} tunnel --url http://localhost:${port}`);
-            tunnelProcess = spawn(binPath, ['tunnel', '--url', `http://localhost:${port}`]);
-
-            let urlFound = false;
-
-            const handleOutput = async (data) => {
-                const output = data.toString();
-                // Regex to find the trycloudflare.com URL
-                const regex = /https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/;
-                const match = output.match(regex);
-
-                if (match && !urlFound) {
-                    urlFound = true;
-                    const tunnelUrl = match[0];
-                    console.log('Tunnel URL Found:', tunnelUrl);
-
-                    // 3. Register with Cloud App
-                    // Using the production Render URL or environment variable
-                    const cloudUrl = process.env.CLOUD_API_URL || 'https://tally-konnect.onrender.com';
-
-                    try {
-                        const bridgeKey = process.env.BRIDGE_API_KEY;
-                        if (!bridgeKey) {
-                            console.error('BRIDGE_API_KEY is not set!');
-                            resolve({ success: false, error: 'Bridge API Key missing in environment.' });
-                            return;
-                        }
-                        await axios.put(`${cloudUrl}/api/tally-connection`, {
-                            host: tunnelUrl,
-                            port: '80',
-                            platform: 'windows'
-                        }, {
-                            headers: { 'x-bridge-key': bridgeKey }
-                        });
-                        resolve({ success: true, url: tunnelUrl });
-                    } catch (apiErr) {
-                        console.error('API Update Failed:', apiErr.message);
-                        resolve({ success: true, url: tunnelUrl, warning: 'Failed to update Cloud App' });
-                    }
-                }
-            };
-
-            tunnelProcess.stderr.on('data', handleOutput);
-            tunnelProcess.stdout.on('data', handleOutput);
-
-            tunnelProcess.on('error', (err) => {
-                console.error('Failed to start tunnel process:', err);
-                resolve({ success: false, error: 'Failed to start cloudflared.' });
-            });
-
-            // Timeout if URL not found in 15s
-            setTimeout(() => {
-                if (!urlFound) {
-                    // Don't kill process yet, maybe it's just slow? 
-                    // But we need to resolve the promise.
-                    resolve({ success: false, error: 'Tunnel timed out. Could not find URL.' });
-                }
-            }, 15000);
-
-        } catch (error) {
-            console.error('Tunnel Error:', error.message);
-            resolve({ success: false, error: error.message });
-        }
+    return new Promise((resolve) => {
+        connectToRelay(resolve);
     });
 });
 
-ipcMain.handle('stop-tunnel', async () => {
-    if (tunnelProcess) {
-        tunnelProcess.kill();
-        tunnelProcess = null;
+// ── IPC: Stop Relay ───────────────────────────────────────────────────────────
+
+ipcMain.handle('stop-relay', async () => {
+    intentionalClose = true;
+    clearTimeout(reconnectTimer);
+    clearInterval(pingTimer);
+    if (bridgeWs) {
+        bridgeWs.close();
+        bridgeWs = null;
     }
+    notifyRenderer('disconnected', 'Disconnected');
     return { success: true };
 });
+
+// ── IPC: Get Relay Status ─────────────────────────────────────────────────────
+
+ipcMain.handle('get-relay-status', async () => {
+    const connected = bridgeWs && bridgeWs.readyState === WebSocket.OPEN;
+    return { connected };
+});
+
+// ── Core: Connect to Relay ────────────────────────────────────────────────────
+
+function connectToRelay(initialResolve = null) {
+    const cloudUrl = process.env.CLOUD_URL || 'https://tally-konnect.onrender.com';
+    const bridgeKey = process.env.BRIDGE_API_KEY;
+
+    if (!bridgeKey) {
+        const msg = 'BRIDGE_API_KEY is not set in .env';
+        console.error('[Bridge]', msg);
+        notifyRenderer('error', msg);
+        if (initialResolve) initialResolve({ success: false, error: msg });
+        return;
+    }
+
+    // Convert https → wss, http → ws
+    const wsUrl = cloudUrl.replace(/^https/, 'wss').replace(/^http/, 'ws') + '/ws/bridge';
+    console.log(`[Bridge] Connecting to relay: ${wsUrl}`);
+    notifyRenderer('connecting', 'Connecting to Cloud...');
+
+    const ws = new WebSocket(wsUrl, {
+        headers: { 'x-bridge-key': bridgeKey },
+    });
+
+    bridgeWs = ws;
+
+    ws.on('open', () => {
+        console.log('[Bridge] Relay connected');
+        reconnectDelay = 1000; // Reset backoff on success
+        notifyRenderer('connected', 'Connected');
+        startPing(ws);
+        if (initialResolve) {
+            initialResolve({ success: true });
+            initialResolve = null; // Only resolve once
+        }
+    });
+
+    ws.on('message', async (data) => {
+        let msg;
+        try {
+            msg = JSON.parse(data.toString());
+        } catch {
+            console.warn('[Bridge] Bad JSON from relay');
+            return;
+        }
+
+        if (msg.type === 'ping') {
+            ws.send(JSON.stringify({ type: 'pong' }));
+            return;
+        }
+
+        if (msg.type === 'request' && msg.id && msg.xml) {
+            // Forward XML to local Tally, return response
+            try {
+                const resp = await axios.post(`http://localhost:${bridgePort}`, msg.xml, {
+                    headers: { 'Content-Type': 'text/xml; charset=utf-8' },
+                    timeout: 15000,
+                    responseType: 'text',
+                    validateStatus: () => true,
+                });
+                ws.send(JSON.stringify({ id: msg.id, type: 'response', xml: resp.data }));
+            } catch (err) {
+                console.error('[Bridge] Tally request failed:', err.message);
+                ws.send(JSON.stringify({ id: msg.id, type: 'error', error: err.message }));
+            }
+        }
+    });
+
+    ws.on('close', (code, reason) => {
+        console.warn(`[Bridge] Relay closed — code:${code} reason:${reason.toString()}`);
+        clearInterval(pingTimer);
+        bridgeWs = null;
+
+        if (initialResolve) {
+            // Failed on first connect attempt
+            initialResolve({ success: false, error: `Could not connect to relay (code ${code})` });
+            initialResolve = null;
+        }
+
+        if (!intentionalClose) {
+            scheduleReconnect();
+        }
+    });
+
+    ws.on('error', (err) => {
+        console.error('[Bridge] WebSocket error:', err.message);
+        notifyRenderer('error', `Error: ${err.message}`);
+    });
+}
+
+// ── Reconnect with exponential backoff ────────────────────────────────────────
+
+function scheduleReconnect() {
+    const delay = Math.min(reconnectDelay, 30000);
+    console.log(`[Bridge] Reconnecting in ${delay}ms...`);
+    notifyRenderer('reconnecting', `Reconnecting in ${Math.round(delay / 1000)}s...`);
+    reconnectTimer = setTimeout(() => {
+        reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+        connectToRelay();
+    }, delay);
+}
+
+// ── Keepalive ping ────────────────────────────────────────────────────────────
+
+function startPing(ws) {
+    clearInterval(pingTimer);
+    pingTimer = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping' }));
+        }
+    }, 25000);
+}
+
+// ── Helper: Push status to renderer ──────────────────────────────────────────
+
+function notifyRenderer(status, message) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('relay-status', { status, message });
+    }
+}

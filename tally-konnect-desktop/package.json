@@ -1,12 +1,11 @@
 {
   "name": "tally-konnect-desktop",
-  "version": "1.0.0",
-  "description": "",
+  "version": "2.0.0",
+  "description": "Tally Konnect Bridge — WebSocket relay client for connecting local Tally Prime to the cloud",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder",
-    "postinstall": "node scripts/download-bin.js"
+    "dist": "electron-builder"
   },
   "build": {
     "appId": "com.tallykonnect.bridge",
@@ -18,7 +17,8 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "extraResources": []
   },
   "keywords": [],
   "author": "",
@@ -27,7 +27,8 @@
   "dependencies": {
     "axios": "^1.13.5",
     "dotenv": "^17.3.1",
-    "electron": "^40.4.0"
+    "electron": "^40.4.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "electron-builder": "^26.7.0"

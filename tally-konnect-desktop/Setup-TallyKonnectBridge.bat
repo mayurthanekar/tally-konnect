@@ -23,7 +23,7 @@ node --version
 echo.
 
 :: Install dependencies
-echo [STEP 1/3] Installing dependencies...
+echo [STEP 1/2] Installing dependencies...
 call npm install --production
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Failed to install dependencies.
@@ -33,17 +33,8 @@ if %ERRORLEVEL% NEQ 0 (
 echo [OK] Dependencies installed.
 echo.
 
-:: Download cloudflared binary
-echo [STEP 2/3] Downloading cloudflared tunnel binary...
-node scripts\download-bin.js
-if %ERRORLEVEL% NEQ 0 (
-    echo [WARNING] cloudflared download failed. You may need to download it manually.
-)
-echo [OK] Binary ready.
-echo.
-
 :: Launch
-echo [STEP 3/3] Launching Tally Konnect Bridge...
+echo [STEP 2/2] Launching Tally Konnect Bridge...
 echo.
 echo ============================================
 echo   Bridge is starting...
