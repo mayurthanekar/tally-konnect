@@ -64,51 +64,55 @@ function packageBridge() {
 REQUIREMENTS:
   - Windows 10 or later
   - Node.js 18+ (https://nodejs.org)
-  - Tally Prime running on this machine
+  - Tally Prime running on this machine (Port 9000)
 
 SETUP:
   1. Extract this zip to any folder
-  2. Double-click "RUN_BRIDGE.bat"
+  2. Double-click "Setup-TallyKonnectBridge.bat"
   3. The setup script will:
      - Install required packages
-     - Download the cloudflared tunnel binary
      - Launch the Bridge application
-  4. In the Bridge app, click "Start Tunnel"
-  5. Your Tally is now connected to the cloud!
+  4. In the Bridge app, click "Connect to Cloud"
+  5. Your Tally is now connected to the cloud via persistent WebSocket!
 
 ENVIRONMENT VARIABLES (optional):
-  CLOUD_API_URL    - Cloud dashboard URL (default: https://tally-konnect.onrender.com)
+  CLOUD_URL        - Cloud dashboard URL (default: https://tally-konnect.onrender.com)
   BRIDGE_API_KEY   - API key for secure communication
   TALLY_HOST       - Tally host (default: http://localhost)
   TALLY_PORT       - Tally port (default: 9000)
 
-NEED HELP?
-  Visit: https://github.com/mayurthanekar/tally-konnect
+HOW IT WORKS:
+  The Bridge establishes an outbound WebSocket connection to the Tally Konnect
+  cloud server. All communication is encrypted and happens over standard HTTP/S
+  ports, requiring no firewall changes or public IP on your local network.
 `.trim();
     fs.writeFileSync(path.join(STAGE_DIR, 'README.txt'), readme);
     console.log('  ✓ README.txt');
 
-    // Create the zip using the system zip command (available on Linux/macOS)
+    // Create the zip
     try {
-        // Try using zip command (Linux/macOS)
-        execSync(`cd "${path.join(ROOT, '.bridge-staging')}" && zip -r "${OUTPUT_FILE}" TallyKonnectBridge/`, { stdio: 'pipe' });
-    } catch {
-        // Fallback: try tar (creates .tar.gz instead) then rename
+        if (process.platform === 'win32') {
+            // Windows: Use PowerShell Compress-Archive
+            console.log('  📦 Zipping with PowerShell...');
+            execSync(`powershell -Command "Compress-Archive -Path '${STAGE_DIR}\\*' -DestinationPath '${OUTPUT_FILE}' -Force"`, { stdio: 'pipe' });
+        } else {
+            // Linux/macOS: Use zip command
+            console.log('  📦 Zipping with zip...');
+            execSync(`cd "${path.join(ROOT, '.bridge-staging')}" && zip -r "${OUTPUT_FILE}" TallyKonnectBridge/`, { stdio: 'pipe' });
+        }
+    } catch (err) {
+        console.warn('  ⚠ Zip command failed, trying tar fallback...');
         try {
             execSync(`cd "${path.join(ROOT, '.bridge-staging')}" && tar -czf "${OUTPUT_FILE.replace('.zip', '.tar.gz')}" TallyKonnectBridge/`, { stdio: 'pipe' });
-            // If tar worked but not zip, rename the output
             const tarFile = OUTPUT_FILE.replace('.zip', '.tar.gz');
-            if (fs.existsSync(tarFile) && !fs.existsSync(OUTPUT_FILE)) {
+            if (fs.existsSync(tarFile)) {
                 fs.renameSync(tarFile, OUTPUT_FILE);
             }
         } catch (err2) {
-            // Manual zip fallback using Node.js
-            console.log('  ⚠ System zip not available, using manual copy...');
-            // Just copy the staging directory to the output
+            console.log('  ⚠ All zip methods failed, using manual copy fallback...');
             const manualDir = path.join(OUTPUT_DIR, 'TallyKonnectBridge');
             if (fs.existsSync(manualDir)) fs.rmSync(manualDir, { recursive: true });
             fs.cpSync(STAGE_DIR, manualDir, { recursive: true });
-            console.log('  ✓ Files copied to public/downloads/TallyKonnectBridge/');
         }
     }
 

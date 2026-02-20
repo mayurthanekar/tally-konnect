@@ -1633,7 +1633,6 @@ function UserManagementPage({ currentUser }) {
 // --- DESKTOP BRIDGE PAGE ---
 function DesktopBridgePage({ tallyConn }) {
   const DOWNLOAD_URL = '/api/download/bridge';
-  const GITHUB_URL = 'https://github.com/mayurthanekar/tally-konnect/releases/latest';
 
   const steps = [
     { icon: 'download', title: 'Download', desc: 'Download the Tally Konnect Bridge installer (.zip) from your company portal or GitHub and extract it to a folder on your Windows machine.' },
@@ -1738,9 +1737,9 @@ function DesktopBridgePage({ tallyConn }) {
             { label: 'Tally Prime', sub: 'localhost:9000', color: T.blue },
             { label: '→', sub: '', color: T.textMuted },
             { label: 'Desktop Bridge', sub: 'Electron App', color: T.accent },
-            { label: '→', sub: '', color: T.textMuted },
-            { label: 'Cloudflare Tunnel', sub: 'Encrypted', color: T.purple },
-            { label: '→', sub: '', color: T.textMuted },
+            { label: '↔', sub: 'Secure WS', color: T.purple },
+            { label: 'WebSocket Relay', sub: 'Persistent', color: T.amber },
+            { label: '↔', sub: 'API', color: T.textMuted },
             { label: 'Cloud Dashboard', sub: 'This app', color: T.green },
           ].map((item, i) => (
             item.sub === '' ? (
