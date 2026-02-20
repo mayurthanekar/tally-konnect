@@ -83,6 +83,7 @@ const api = {
   getTallyConnection: () => request('GET', '/tally-connection'),
   updateTallyConnection: (data) => request('PUT', '/tally-connection', data),
   testTallyConnection: (host, port) => request('POST', '/tally-connection/test', { host, port }),
+  getRelayStatus: () => request('GET', '/tally-connection/relay-status'),
 
   // Dashboard
   getDashboardStats: () => request('GET', '/dashboard/stats'),

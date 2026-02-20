@@ -270,7 +270,7 @@ function Icon({ name, size = 16, color = "currentColor" }) {
 
 
 /* --- PAGE: DASHBOARD --- */
-function DashboardPage({ configs, schedules, mappings, b2bSettings, importData, tallyConn, setTallyConn }) {
+function DashboardPage({ configs, schedules, mappings, b2bSettings, importData, tallyConn, setTallyConn, relayConnected }) {
   const activeApis = Object.values(configs).filter(c => c.enabled).length;
   const activeSchedules = Object.values(schedules).filter(s => s.enabled).length;
   const mappedFields = mappings.filter(m => m.tallyField).length;
@@ -344,6 +344,18 @@ function DashboardPage({ configs, schedules, mappings, b2bSettings, importData, 
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* Bridge Status Indicator */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 20,
+              background: relayConnected ? T.greenBg : T.amberBg,
+              border: `1px solid ${relayConnected ? T.green + "30" : T.amber + "30"}`,
+            }}>
+              <Icon name="zap" size={14} color={relayConnected ? T.green : T.amber} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: relayConnected ? T.green : T.amber, fontFamily: T.font }}>
+                BRIDGE: {relayConnected ? "ONLINE" : "OFFLINE"}
+              </span>
+            </div>
+
             {/* Live status indicator */}
             <div style={{
               display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 20,
@@ -360,7 +372,7 @@ function DashboardPage({ configs, schedules, mappings, b2bSettings, importData, 
                 fontSize: 12, fontWeight: 700, fontFamily: T.font,
                 color: isConnected ? T.green : isError ? T.red : isChecking ? T.amber : T.textMuted,
               }}>
-                {isConnected ? "CONNECTED" : isError ? "UNREACHABLE" : isChecking ? "CHECKING..." : "DISCONNECTED"}
+                {isConnected ? "TALLY ONLINE" : isError ? "UNREACHABLE" : isChecking ? "CHECKING..." : "TALLY OFFLINE"}
               </span>
             </div>
           </div>
@@ -1624,10 +1636,10 @@ function DesktopBridgePage({ tallyConn }) {
   const GITHUB_URL = 'https://github.com/mayurthanekar/tally-konnect/releases/latest';
 
   const steps = [
-    { icon: 'download', title: 'Download', desc: 'Download the Tally Konnect Bridge installer (.exe) from GitHub Releases and install it on your Windows machine where Tally Prime is running.' },
-    { icon: 'settings', title: 'Configure', desc: 'Launch the Bridge app. It will auto-detect Tally Prime on localhost:9000. If Tally runs on a different port, update the settings.' },
-    { icon: 'zap', title: 'Connect', desc: 'Click "Start Tunnel" in the Bridge app. It creates a secure Cloudflare tunnel and registers with this cloud dashboard automatically.' },
-    { icon: 'check-circle', title: 'Syncing', desc: 'Once connected, all API calls, schedules, and data imports configured here are routed through the tunnel to your local Tally Prime.' },
+    { icon: 'download', title: 'Download', desc: 'Download the Tally Konnect Bridge installer (.zip) from your company portal or GitHub and extract it to a folder on your Windows machine.' },
+    { icon: 'settings', title: 'Configure', desc: 'Run the Setup file to install dependencies. The bridge will auto-detect Tally Prime on localhost:9000.' },
+    { icon: 'zap', title: 'Connect', desc: 'Click "Connect to Cloud" in the Bridge app. It creates a persistent WebSocket relay connection to this cloud dashboard.' },
+    { icon: 'check-circle', title: 'Syncing', desc: 'Once connected, the Bridge Status on your dashboard will turn Online, allowing all API calls and syncs to reach your local Tally Prime.' },
   ];
 
   return (
@@ -1754,6 +1766,7 @@ export default function TallyKonnectApp() {
   const [currentUser, setCurrentUser] = useState(api.getStoredUser());
   const [page, setPage] = useState("dashboard");
   const [saveStatus, setSaveStatus] = useState(null);
+  const [relayConnected, setRelayConnected] = useState(false);
   const isAuth = !!currentUser;
 
   const [configs, setConfigs] = useState(() => {
@@ -1827,6 +1840,12 @@ export default function TallyKonnectApp() {
     api.getSchedules().then(r => r.data && setSchedules(prev => ({ ...prev, ...r.data }))).catch(() => { });
     api.getMappings().then(r => r.data && Array.isArray(r.data) && r.data.length > 0 && setMappings(r.data)).catch(() => { });
     api.getB2bSettings().then(r => r.data && setB2bSettings(prev => ({ ...prev, ...r.data }))).catch(() => { });
+
+    // Poll relay status every 10s
+    const checkRelay = () => api.getRelayStatus().then(r => setRelayConnected(!!r.data?.connected)).catch(() => setRelayConnected(false));
+    checkRelay();
+    const timer = setInterval(checkRelay, 10000);
+    return () => clearInterval(timer);
   }, []);
 
   const handleLogout = () => { api.clearToken(); setCurrentUser(null); };
@@ -1943,7 +1962,7 @@ export default function TallyKonnectApp() {
       {/* --- MAIN AREA --- */}
       <div style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
-          {page === "dashboard" && <DashboardPage configs={configs} schedules={schedules} mappings={mappings} b2bSettings={b2bSettings} importData={importData} tallyConn={tallyConn} setTallyConn={setTallyConn} />}
+          {page === "dashboard" && <DashboardPage configs={configs} schedules={schedules} mappings={mappings} b2bSettings={b2bSettings} importData={importData} tallyConn={tallyConn} setTallyConn={setTallyConn} relayConnected={relayConnected} />}
           {page === "api" && <ApiConfigPage configs={configs} setConfigs={setConfigs} />}
           {page === "mapping" && <FieldMappingPage mappings={mappings} setMappings={setMappings} />}
           {page === "import" && <DataImportPage mappings={mappings} importData={importData} setImportData={setImportData} />}
