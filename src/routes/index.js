@@ -62,6 +62,7 @@ router.delete('/auth/users/:id', protect, auth.deleteUser);
 // TALLY CONNECTION (Dashboard + Bridge)
 // =============================================
 router.get('/tally-connection', protect, tallyConn.get);
+router.get('/tally-connection/relay-status', protect, tallyConn.relayStatus);
 
 // Allow either standard auth OR bridge auth for updates
 router.put('/tally-connection',

@@ -3,12 +3,16 @@
 require('dotenv').config();
 
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
 const path = require('path');
 const fs = require('fs');
+
+// WebSocket relay — must be imported BEFORE server starts
+const wsRelay = require('./services/ws-relay.service');
 
 const config = require('./config');
 const logger = require('./utils/logger');
@@ -150,7 +154,24 @@ async function start() {
     }
   }
 
-  app.listen(PORT, HOST, () => {
+  // ── Start HTTP + WebSocket server ──────────────────────────────────────────
+  const { WebSocketServer } = require('ws');
+  const server = http.createServer(app);
+  const wss = new WebSocketServer({ noServer: true });
+
+  // Attach relay to the WS server
+  wsRelay.attach(wss);
+
+  // Upgrade HTTP → WS only for /ws/bridge
+  server.on('upgrade', (req, socket, head) => {
+    if (req.url === '/ws/bridge') {
+      wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+    } else {
+      socket.destroy();
+    }
+  });
+
+  server.listen(PORT, HOST, () => {
     logger.info({ port: PORT, host: HOST, env: process.env.NODE_ENV }, 'Tally Konnect server started');
   });
 

@@ -3,6 +3,7 @@ const { db } = require('../db');
 const TallyXmlClient = require('../services/tally.client');
 const { validateTallyUrl } = require('../middleware');
 const logger = require('../utils/logger');
+const wsRelay = require('../services/ws-relay.service');
 
 // GET /api/tally-connection
 async function get(req, res, next) {
@@ -129,4 +130,12 @@ async function test(req, res, next) {
   }
 }
 
-module.exports = { get, update, test };
+// GET /api/tally-connection/relay-status
+async function relayStatus(req, res, next) {
+  try {
+    const connected = wsRelay.isConnected();
+    res.json({ success: true, data: { bridgeConnected: connected } });
+  } catch (err) { next(err); }
+}
+
+module.exports = { get, update, test, relayStatus };

@@ -7,6 +7,7 @@ const { create } = require('xmlbuilder2');
 const config = require('../config');
 const logger = require('../utils/logger');
 const { TallyConnectionError, TallyCompanyNotOpenError, TallyImportError } = require('../utils/errors');
+const wsRelay = require('./ws-relay.service');
 
 const xmlParser = new XMLParser({
   ignoreAttributes: false,
@@ -28,6 +29,12 @@ class TallyXmlClient {
    * Send raw XML to Tally and parse response
    */
   async sendRequest(xmlPayload, retries = 0) {
+    // ── Route via relay if bridge is connected ────────────────────────────────
+    if (wsRelay.isConnected()) {
+      return this.sendRequestViaRelay(xmlPayload);
+    }
+
+    // ── Direct HTTP (local dev or same-network) ───────────────────────────────
     try {
       const response = await axios.post(this.baseUrl, xmlPayload, {
         headers: { 'Content-Type': 'text/xml; charset=utf-8' },
@@ -53,6 +60,21 @@ class TallyXmlClient {
       }
 
       throw new TallyConnectionError(this.host, this.port, err.message || err.code);
+    }
+  }
+
+  /**
+   * Send XML to Tally via the WS relay bridge.
+   * The raw XML string goes to the bridge's local axios call; response XML comes back.
+   */
+  async sendRequestViaRelay(xmlPayload) {
+    try {
+      logger.info('[Relay] Proxying Tally request via WebSocket bridge');
+      const rawXml = await wsRelay.proxyRequest(xmlPayload, this.timeout + 5000);
+      const parsed = xmlParser.parse(rawXml);
+      return { raw: rawXml, parsed, status: 200 };
+    } catch (err) {
+      throw new TallyConnectionError('relay', 'ws', err.message);
     }
   }
 
